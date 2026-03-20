@@ -1,0 +1,27 @@
+{
+  "name": "@royaltyport/cli",
+  "version": "0.1.0",
+  "description": "Royaltyport CLI — authenticate, list projects, and connect to project file systems",
+  "type": "module",
+  "bin": {
+    "royaltyport": "./bin/royaltyport.js"
+  },
+  "scripts": {
+    "start": "node bin/royaltyport.js",
+    "lint": "eslint"
+  },
+  "keywords": [
+    "royaltyport",
+    "cli"
+  ],
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "conf": "^13.1.0",
+    "ora": "^8.2.0"
+  }
+}
