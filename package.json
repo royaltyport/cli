@@ -4,7 +4,7 @@
   "description": "Royaltyport CLI — authenticate, list projects, and connect to project file systems",
   "type": "module",
   "bin": {
-    "royaltyport": "./bin/royaltyport.js"
+    "royaltyport": "bin/royaltyport.js"
   },
   "scripts": {
     "start": "node bin/royaltyport.js",

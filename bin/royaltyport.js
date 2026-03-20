@@ -8,7 +8,7 @@ import { registerProjectCommand } from '../src/commands/project.js';
 
 program
   .name('royaltyport')
-  .description('Royaltyport CLI — authenticate, list projects, and execute sandbox commands')
+  .description('Royaltyport CLI — authenticate, list projects, and execute commands in a sandboxed project filesystem')
   .version('0.1.0');
 
 registerLoginCommand(program);
