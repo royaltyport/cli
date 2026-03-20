@@ -1,5 +1,5 @@
 ---
-name: royaltyport-cli
+name: royaltyport-sandbox
 description: Access Royaltyport project data via the CLI sandbox. Use when working with music royalty contracts, entities, artists, writers, relations, recordings, compositions, or statements.
 metadata:
   author: royaltyport
