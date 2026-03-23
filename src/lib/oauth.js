@@ -6,6 +6,7 @@ import {
   OAUTH_AUTH_URL,
   OAUTH_REDIRECT_URI,
   OAUTH_CALLBACK_PORT,
+  OAUTH_AUTH_SCREEN,
 } from './constants.js';
 
 function base64url(buffer) {
@@ -70,17 +71,19 @@ export async function startOAuthFlow() {
 
       clearTimeout(timeout);
 
+      const resultUrl = (status) => `${OAUTH_AUTH_SCREEN}/oauth/result?status=${status}`;
+
       if (error) {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end('<html><body><h1>Authorization denied</h1><p>You can close this window.</p></body></html>');
+        res.writeHead(302, { Location: resultUrl('denied') });
+        res.end();
         server.close();
         reject(new Error(`Authorization denied: ${error}`));
         return;
       }
 
       if (!code || returnedState !== state) {
-        res.writeHead(400, { 'Content-Type': 'text/html' });
-        res.end('<html><body><h1>Invalid callback</h1><p>Missing code or state mismatch.</p></body></html>');
+        res.writeHead(302, { Location: resultUrl('error') });
+        res.end();
         server.close();
         reject(new Error('Invalid OAuth callback: missing code or state mismatch.'));
         return;
@@ -89,13 +92,13 @@ export async function startOAuthFlow() {
       try {
         const tokens = await exchangeCodeForTokens(code, verifier);
 
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end('<html><body><h1>Authenticated!</h1><p>You can close this window and return to the CLI.</p></body></html>');
+        res.writeHead(302, { Location: resultUrl('authorized') });
+        res.end();
         server.close();
         resolve(tokens);
       } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'text/html' });
-        res.end(`<html><body><h1>Error</h1><p>${err.message}</p></body></html>`);
+        res.writeHead(302, { Location: resultUrl('error') });
+        res.end();
         server.close();
         reject(err);
       }
