@@ -23,19 +23,25 @@ npm link
 
 ## Authentication
 
-### Interactive login
+The CLI supports two authentication methods. **Browser login** is the default and recommended approach. **API tokens** are available for server-side and headless environments.
+
+### Browser login (default)
 
 ```bash
 royaltyport login
 ```
 
-You'll be prompted for your API token (`rp_...`). The token is validated against the API and stored locally.
+Opens your browser where you sign in to Royaltyport and approve access via OAuth. Tokens are received automatically and stored locally — nothing to copy or paste. Sessions are refreshed automatically.
 
-### Token flag
+### API token login
+
+For CI/CD, automation, or environments without a browser, pass an API token directly:
 
 ```bash
 royaltyport login --token rp_your_token_here
 ```
+
+Tokens are created in **Organizations > Settings > Tokens** in the Royaltyport platform.
 
 ### Environment variables
 
@@ -43,7 +49,7 @@ For CI/CD or AI agent integrations, set these environment variables instead of r
 
 | Variable             | Description                                              |
 | -------------------- | -------------------------------------------------------- |
-| `ROYALTYPORT_TOKEN`  | API token — overrides the stored token                   |
+| `ROYALTYPORT_TOKEN`  | API token — overrides stored credentials                 |
 | `ROYALTYPORT_API_URL`| Custom API base URL (default: `https://api.royaltyport.com`) |
 
 ### Custom API URL
