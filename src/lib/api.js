@@ -1,4 +1,13 @@
-import { getToken, getApiUrl } from './config.js';
+import {
+  getToken,
+  getApiUrl,
+  getAuthMethod,
+  getAccessToken,
+  getRefreshToken,
+  isTokenExpired,
+  setOAuthTokens,
+} from './config.js';
+import { refreshAccessToken } from './oauth.js';
 
 class ApiError extends Error {
   constructor(message, status, body) {
@@ -25,7 +34,28 @@ async function parseResponse(res) {
   }
 }
 
-export function requireAuth() {
+export async function requireAuth() {
+  const method = getAuthMethod();
+
+  if (method === 'oauth') {
+    let accessToken = getAccessToken();
+    if (!accessToken) {
+      throw new ApiError('Not authenticated. Run `royaltyport login` first.', 401);
+    }
+
+    if (isTokenExpired()) {
+      const refreshToken = getRefreshToken();
+      if (!refreshToken) {
+        throw new ApiError('Session expired. Run `royaltyport login` to re-authenticate.', 401);
+      }
+      const tokens = await refreshAccessToken(refreshToken);
+      setOAuthTokens(tokens.access_token, tokens.refresh_token, tokens.expires_in);
+      accessToken = tokens.access_token;
+    }
+
+    return accessToken;
+  }
+
   const token = getToken();
   if (!token) {
     throw new ApiError('Not authenticated. Run `royaltyport login` first.', 401);
@@ -35,9 +65,10 @@ export function requireAuth() {
 
 export async function apiGet(path, token) {
   const baseUrl = getApiUrl();
+  const resolvedToken = token || await requireAuth();
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'GET',
-    headers: buildHeaders(token || requireAuth()),
+    headers: buildHeaders(resolvedToken),
   });
   const body = await parseResponse(res);
   if (!res.ok) {
@@ -49,9 +80,10 @@ export async function apiGet(path, token) {
 
 export async function apiPost(path, data, token) {
   const baseUrl = getApiUrl();
+  const resolvedToken = token || await requireAuth();
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
-    headers: buildHeaders(token || requireAuth()),
+    headers: buildHeaders(resolvedToken),
     body: JSON.stringify(data),
   });
   const body = await parseResponse(res);
@@ -64,9 +96,10 @@ export async function apiPost(path, data, token) {
 
 export async function apiDelete(path, token) {
   const baseUrl = getApiUrl();
+  const resolvedToken = token || await requireAuth();
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'DELETE',
-    headers: buildHeaders(token || requireAuth()),
+    headers: buildHeaders(resolvedToken),
   });
   const body = await parseResponse(res);
   if (!res.ok) {
