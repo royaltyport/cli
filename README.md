@@ -2,6 +2,10 @@
 
 Command-line interface for Royaltyport. Authenticate, browse projects, and execute commands in project sandboxes.
 
+## Documentation
+
+Full CLI reference available at [docs.royaltyport.com/cli-reference](https://docs.royaltyport.com/cli-reference).
+
 ## Requirements
 
 - Node.js >= 18.0.0
@@ -124,7 +128,6 @@ The skill covers authentication, project discovery, filesystem layout, and commo
 ## Configuration
 
 Credentials and settings are stored at `~/.config/royaltyport/config.json` (managed by [conf](https://github.com/sindresorhus/conf)). Running `royaltyport logout` clears this file.
-
 ## License
 
 UNLICENSED
