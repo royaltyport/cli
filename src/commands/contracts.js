@@ -81,19 +81,21 @@ export function registerContractsCommand(program) {
 
         spinner.stop();
 
+        const contract = data.data;
         printSuccess('Contract uploaded successfully.');
         console.log();
         printTable(
           ['Field', 'Value'],
           [
-            ['Staging ID', data.stagingId],
-            ['File Name', data.fileName],
-            ['Staging Stage', data.stagingStage],
-            ['Created At', new Date(data.createdAt).toLocaleString()],
+            ['Staging ID', contract.staging_id],
+            ['Staging Stage', contract.staging_stage],
+            ['Staging Done', contract.staging_done ? 'yes' : 'no'],
+            ['Extractions Done', contract.extractions_done ? 'yes' : 'no'],
+            ['Created At', new Date(contract.created_at).toLocaleString()],
           ],
         );
         console.log();
-        printInfo(`Track progress: royaltyport contracts status ${projectId} ${data.stagingId}`);
+        printInfo(`Track progress: royaltyport contracts status ${projectId} ${contract.staging_id}`);
       } catch (err) {
         printError(err.message);
         process.exit(1);
@@ -124,15 +126,15 @@ export function registerContractsCommand(program) {
           while (true) {
             data = await fetchStatus();
 
-            if (!data.stagingDone) {
-              spinner.text = `Staging: ${data.stagingProcesses.stage}...`;
-            } else if (!data.extractionDone) {
-              const exts = data.extractionProcesses?.extractions || [];
+            if (!data.staging_done) {
+              spinner.text = `Staging: ${data.staging_processes.stage}...`;
+            } else if (!data.extraction_done) {
+              const exts = data.extraction_processes?.extractions || [];
               const completed = exts.filter(e => e.status === 'completed').length;
-              spinner.text = `Extraction: ${data.extractionProcesses?.stage} (${completed}/${exts.length} steps done)`;
+              spinner.text = `Extraction: ${data.extraction_processes?.stage} (${completed}/${exts.length} steps done)`;
             }
 
-            if (data.stagingDone && data.extractionDone) break;
+            if (data.staging_done && data.extraction_done) break;
             await new Promise(r => setTimeout(r, 3000));
           }
 
@@ -190,38 +192,42 @@ export function registerContractsCommand(program) {
 function printProcessStatus(data) {
   console.log();
   printStatusLine([
-    ['Staging ID', data.stagingId],
-    ['Contract ID', data.contractId],
-    ['Staging', formatStatus(data.stagingProcesses.stage)],
-    ['Staging Done', data.stagingDone ? brand('yes') : dim('no')],
-    ['Extraction Done', data.extractionDone ? brand('yes') : dim('no')],
+    ['Staging ID', data.staging_id],
+    ['Contract ID', data.contract_id],
+    ['Staging', formatStatus(data.staging_processes.stage)],
+    ['Staging Done', data.staging_done ? brand('yes') : dim('no')],
+    ['Extraction Done', data.extraction_done ? brand('yes') : dim('no')],
   ]);
 
-  if (data.stagingProcesses.stage === 'failed' && data.stagingProcesses.info?.checkType) {
-    console.log();
-    console.log(errorColor(`Staging failed: ${data.stagingProcesses.info.checkType}`));
-    if (data.stagingProcesses.info.checkMessage) {
-      console.log(dim(`  ${data.stagingProcesses.info.checkMessage}`));
+  if (data.staging_processes.stage === 'failed') {
+    const info = data.staging_processes.info || {};
+    const check = info.staging_check || {};
+    if (check.status === 'failed') {
+      console.log();
+      console.log(errorColor(`Staging failed: staging_check`));
+      if (check.info && Object.keys(check.info).length > 0) {
+        console.log(dim(`  ${JSON.stringify(check.info)}`));
+      }
     }
   }
 
-  if (data.extractionProcesses) {
+  if (data.extraction_processes) {
     console.log();
-    console.log(`Extraction stage: ${formatStatus(data.extractionProcesses.stage)}`);
+    console.log(`Extraction stage: ${formatStatus(data.extraction_processes.stage)}`);
 
-    const exts = data.extractionProcesses.extractions || [];
+    const exts = data.extraction_processes.extractions || [];
     if (exts.length > 0) {
       const rows = exts.map(e => [
         e.name,
         formatStatus(e.status),
-        e.completedAt ? new Date(e.completedAt).toLocaleString() : '-',
+        e.completed_at ? new Date(e.completed_at).toLocaleString() : '-',
       ]);
       console.log();
       printTable(['Extraction', 'Status', 'Completed At'], rows);
     } else {
       printInfo('No extraction steps recorded yet.');
     }
-  } else if (data.stagingDone && data.stagingProcesses.stage === 'completed') {
+  } else if (data.staging_done && data.staging_processes.stage === 'completed') {
     console.log();
     printInfo('Waiting for extraction to start...');
   }
