@@ -14,7 +14,7 @@ export function registerProjectCommand(program) {
     .argument('<project_id>', 'Project ID')
     .action(async (projectId) => {
       try {
-        requireAuth();
+        await requireAuth();
 
         const spinner = ora({ text: 'Connecting to sandbox...', color: spinnerColor }).start();
         await apiPost(`/v1/projects/${projectId}/sandbox/connect`, {});
@@ -41,7 +41,7 @@ export function registerProjectCommand(program) {
     .argument('<command>', 'Bash command to execute')
     .action(async (projectId, command) => {
       try {
-        requireAuth();
+        await requireAuth();
 
         await apiPost(`/v1/projects/${projectId}/sandbox/connect`, {});
 

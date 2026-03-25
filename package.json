@@ -8,7 +8,10 @@
   },
   "scripts": {
     "start": "node bin/royaltyport.js",
-    "lint": "eslint"
+    "lint": "eslint",
+    "link:cli": "sh scripts/link.sh",
+    "unlink:cli": "sh scripts/unlink.sh",
+    "publish:cli": "sh scripts/publish.sh"
   },
   "keywords": [
     "royaltyport",

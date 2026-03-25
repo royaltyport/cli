@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import {
   getToken,
   getApiUrl,
@@ -33,6 +35,52 @@ async function parseResponse(res) {
     return { message: text };
   }
 }
+
+
+async function parseSseResponse(res, onEvent) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let result = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop();
+
+    for (const part of parts) {
+      let event = 'message';
+      let data = '';
+
+      for (const line of part.split('\n')) {
+        if (line.startsWith('event: ')) event = line.slice(7);
+        else if (line.startsWith('data: ')) data = line.slice(6);
+      }
+
+      if (!data) continue;
+
+      const parsed = JSON.parse(data);
+      onEvent?.({ event, data: parsed });
+
+      if (event === 'error') {
+        throw new ApiError(parsed.message || 'Request failed', 500);
+      }
+      if (event === 'complete') {
+        result = parsed;
+      }
+    }
+  }
+
+  if (!result) {
+    throw new ApiError('Stream ended without a complete event', 500);
+  }
+
+  return result;
+}
+
 
 export async function requireAuth() {
   const method = getAuthMethod();
@@ -107,6 +155,65 @@ export async function apiDelete(path, token) {
     throw new ApiError(msg, res.status, body);
   }
   return body;
+}
+
+/**
+ * Upload a file via multipart/form-data while streaming SSE progress events.
+ */
+export async function apiUploadMultipart(path, filePath, fields = {}, onEvent, token) {
+  const baseUrl = getApiUrl();
+  const resolvedToken = token || await requireAuth();
+
+  const fileBuffer = readFileSync(filePath);
+  const fileName = basename(filePath);
+
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    form.append(key, value);
+  }
+  form.append('file', new Blob([fileBuffer], { type: 'application/pdf' }), fileName);
+
+  const res = await fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${resolvedToken}`,
+      'Accept': 'text/event-stream',
+    },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const body = await parseResponse(res);
+    const msg = body?.error?.message || body?.message || `Request failed with status ${res.status}`;
+    throw new ApiError(msg, res.status, body);
+  }
+
+  return parseSseResponse(res, onEvent);
+}
+
+/**
+ * POST JSON body while streaming SSE progress events.
+ */
+export async function apiUploadJson(path, data, onEvent, token) {
+  const baseUrl = getApiUrl();
+  const resolvedToken = token || await requireAuth();
+
+  const res = await fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      ...buildHeaders(resolvedToken),
+      'Accept': 'text/event-stream',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const body = await parseResponse(res);
+    const msg = body?.error?.message || body?.message || `Request failed with status ${res.status}`;
+    throw new ApiError(msg, res.status, body);
+  }
+
+  return parseSseResponse(res, onEvent);
 }
 
 export { ApiError };

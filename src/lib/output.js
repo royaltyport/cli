@@ -1,5 +1,14 @@
 import { brand, brandBold, dim, error, accent } from './theme.js';
 
+
+export function printStatusLine(entries) {
+  const line = entries
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(([label, value]) => `${label}: ${value}`)
+    .join('  |  ');
+  console.log(line);
+}
+
 export function printTable(columns, rows) {
   const widths = columns.map((col, i) => {
     const maxData = rows.reduce((max, row) => Math.max(max, String(row[i] ?? '').length), 0);

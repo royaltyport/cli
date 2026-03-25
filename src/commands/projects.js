@@ -9,7 +9,7 @@ export function registerProjectsCommand(program) {
     .description('List available projects')
     .action(async () => {
       try {
-        requireAuth();
+        await requireAuth();
 
         const spinner = ora({ text: 'Fetching projects...', color: spinnerColor }).start();
         const response = await apiGet('/v1/projects');
