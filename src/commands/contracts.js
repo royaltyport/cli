@@ -61,8 +61,8 @@ export function registerContractsCommand(program) {
         let data;
         if (hasBase64) {
           data = await apiUploadJson(
-            '/v1/contracts',
-            { projectId, file: options.base64, fileName: options.fileName },
+            `/v1/contracts?projectId=${projectId}`,
+            { file: options.base64, fileName: options.fileName },
             onProgress,
           );
         } else {
@@ -72,9 +72,9 @@ export function registerContractsCommand(program) {
             process.exit(1);
           }
           data = await apiUploadMultipart(
-            '/v1/contracts',
+            `/v1/contracts?projectId=${projectId}`,
             filePath,
-            { projectId },
+            {},
             onProgress,
           );
         }
