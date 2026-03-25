@@ -30,6 +30,7 @@ export function registerContractsCommand(program) {
     .argument('[file_path]', 'Path to the PDF file')
     .option('--base64 <string>', 'Base64-encoded file content (alternative to file_path)')
     .option('--file-name <name>', 'File name (required with --base64)')
+    .option('--extractions <list>', 'Comma-separated extraction IDs: extract-accounting-period, extract-assets, extract-commitments, extract-compensations, extract-control-areas, extract-costs, extract-creative-approvals, extract-dates, extract-royalties, extract-signatures, extract-splits, extract-targets')
     .action(async (projectId, filePath, options) => {
       try {
         await requireAuth();
@@ -50,6 +51,10 @@ export function registerContractsCommand(program) {
           process.exit(1);
         }
 
+        const extractions = options.extractions
+          ? options.extractions.split(',').map(e => e.trim()).filter(Boolean)
+          : undefined;
+
         const spinner = ora({ text: 'Uploading contract...', color: spinnerColor }).start();
 
         const onProgress = ({ event, data: eventData }) => {
@@ -62,7 +67,7 @@ export function registerContractsCommand(program) {
         if (hasBase64) {
           data = await apiUploadJson(
             `/v1/contracts?projectId=${projectId}`,
-            { file: options.base64, fileName: options.fileName },
+            { file: options.base64, fileName: options.fileName, ...(extractions && { extractions }) },
             onProgress,
           );
         } else {
@@ -74,7 +79,7 @@ export function registerContractsCommand(program) {
           data = await apiUploadMultipart(
             `/v1/contracts?projectId=${projectId}`,
             filePath,
-            {},
+            { ...(extractions && { extractions: JSON.stringify(extractions) }) },
             onProgress,
           );
         }
@@ -168,20 +173,21 @@ export function registerContractsCommand(program) {
         );
         spinner.stop();
 
-        const contractsList = response.data;
-        if (!contractsList || contractsList.length === 0) {
+        const { items, total_count, page, per_page } = response.data;
+        if (!items || items.length === 0) {
           printInfo('No contracts found.');
           return;
         }
 
-        const rows = contractsList.map(c => [
+        const rows = items.map(c => [
           c.id,
-          c.file_name || c.fileName || '-',
-          c.extraction_stage || c.extractionStage || '-',
+          c.file_name || '-',
           c.created_at ? new Date(c.created_at).toLocaleDateString() : '-',
         ]);
 
-        printTable(['ID', 'File Name', 'Extraction Stage', 'Created'], rows);
+        printTable(['ID', 'File Name', 'Created'], rows);
+        console.log();
+        printInfo(`Page ${page} of ${Math.ceil(total_count / per_page)} (${total_count} total)`);
       } catch (err) {
         printError(err.message);
         process.exit(1);
