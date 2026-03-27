@@ -3,12 +3,12 @@ name: royaltyport-sandbox
 description: Access Royaltyport project data via the CLI sandbox. Use when working with music royalty contracts, entities, artists, writers, relations, recordings, compositions, or statements.
 metadata:
   author: royaltyport
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Skill: Royaltyport Sandbox
 
-Access Royaltyport project data through the CLI. All project data is stored as YAML files in a sandboxed filesystem. You execute bash commands against the sandbox — no SDK or API calls needed.
+Access Royaltyport project data through the CLI. Upload and download contracts and statements, track processing status, and explore project data stored as YAML files in a sandboxed filesystem.
 
 ## Prerequisites
 
@@ -48,13 +48,97 @@ This prints the project's AGENTS.md — a detailed breakdown of every directory,
 
 ## Executing Commands
 
-Run any bash command in the sandbox with `project exec`. Commands run with the workspace root as the working directory. Use relative paths directly.
+Run bash commands in the sandbox with `project exec`. Commands run with the workspace root as the working directory.
 
 ```bash
-royaltyport project exec <project_id> "<command>"
+# Single command
+royaltyport project exec <project_id> "ls contracts/"
+
+# Multiple commands in one call (reuses the same sandbox connection)
+royaltyport project exec <project_id> "ls contracts/" "cat stats.yaml"
+
+# Run commands in parallel
+royaltyport project exec <project_id> "cat stats.yaml" "ls contracts/" --parallel
 ```
 
-stdout and stderr stream to their respective outputs. The process exits with the command's exit code.
+stdout and stderr stream to their respective outputs. The process exits with the last non-zero exit code (or 0 if all succeed).
+
+## Contract Management
+
+### Upload a contract
+
+```bash
+# Upload from file
+royaltyport contracts upload <project_id> contract.pdf
+
+# Upload with extractions
+royaltyport contracts upload <project_id> contract.pdf --extractions extract-royalties,extract-splits,extract-entities
+
+# Upload from base64
+royaltyport contracts upload <project_id> --base64 "$BASE64" --file-name contract.pdf
+```
+
+Available extractions: `extract-accounting-period`, `extract-assets`, `extract-commitments`, `extract-compensations`, `extract-control-areas`, `extract-costs`, `extract-creative-approvals`, `extract-dates`, `extract-royalties`, `extract-signatures`, `extract-splits`, `extract-targets`, `extract-balances`.
+
+### Check contract processing status
+
+```bash
+# Check once
+royaltyport contracts status <project_id> <staging_id>
+
+# Watch until staging and extractions complete
+royaltyport contracts status <project_id> <staging_id> --watch
+```
+
+### List contracts
+
+```bash
+royaltyport contracts list <project_id>
+royaltyport contracts list <project_id> --page 2 --per-page 50
+```
+
+### Download a contract
+
+```bash
+royaltyport contracts download <project_id> <contract_id>
+royaltyport contracts download <project_id> <contract_id> --output ./downloads/contract.pdf
+```
+
+## Statement Management
+
+### Upload a statement
+
+```bash
+# Upload from file
+royaltyport statements upload <project_id> statement.pdf
+
+# Upload from base64
+royaltyport statements upload <project_id> --base64 "$BASE64" --file-name statement.pdf
+```
+
+### Check statement processing status
+
+```bash
+# Check once
+royaltyport statements status <project_id> <staging_id>
+
+# Watch until staging and processing complete
+royaltyport statements status <project_id> <staging_id> --watch
+```
+
+### List statements
+
+```bash
+royaltyport statements list <project_id>
+royaltyport statements list <project_id> --page 2 --per-page 50
+```
+
+### Download a statement
+
+```bash
+royaltyport statements download <project_id> <statement_id>
+royaltyport statements download <project_id> <statement_id> --output ./downloads/statement.pdf
+```
 
 ## Filesystem Layout
 
@@ -155,6 +239,22 @@ royaltyport project exec $PROJECT_ID "cat statements/statement_{id}/metadata.yam
 royaltyport project exec $PROJECT_ID "cat statements/recordings/statement_{id}/assets.yaml"
 ```
 
+### Batch multiple reads
+
+```bash
+# Fetch several files in one call
+royaltyport project exec $PROJECT_ID \
+  "cat stats.yaml" \
+  "ls contracts/" \
+  "ls statements/"
+
+# Parallel reads for independent data
+royaltyport project exec $PROJECT_ID \
+  "cat contracts/contract_{id}/extracted/royalties.yaml" \
+  "cat contracts/contract_{id}/extracted/entities.yaml" \
+  --parallel
+```
+
 ## Tips
 
 - **Always start with `stats.yaml`** to understand how much data the project has.
@@ -162,3 +262,5 @@ royaltyport project exec $PROJECT_ID "cat statements/recordings/statement_{id}/a
 - **Check `merged.yaml`** — artists, writers, and entities may have duplicates merged into a root record.
 - **All data is plain-text YAML** — standard Unix tools (`grep`, `cat`, `find`, `wc`, `sort`, `head`) all work.
 - **Contract extractions** under `extracted/` are AI-extracted terms. One YAML file per category.
+- **Batch commands** when you need multiple reads — pass multiple quoted commands to `project exec` to avoid repeated sandbox connections.
+- **Use `--parallel`** when commands are independent and you want faster results.
