@@ -7,6 +7,7 @@ import { registerLogoutCommand } from '../src/commands/logout.js';
 import { registerProjectsCommand } from '../src/commands/projects.js';
 import { registerProjectCommand } from '../src/commands/project.js';
 import { registerContractsCommand } from '../src/commands/contracts.js';
+import { registerStatementsCommand } from '../src/commands/statements.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
 
@@ -20,5 +21,6 @@ registerLogoutCommand(program);
 registerProjectsCommand(program);
 registerProjectCommand(program);
 registerContractsCommand(program);
+registerStatementsCommand(program);
 
 program.parse();

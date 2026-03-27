@@ -1,7 +1,7 @@
 import ora from 'ora';
 import { apiPost, apiGet, requireAuth } from '../lib/api.js';
 import { printError, printInfo } from '../lib/output.js';
-import { warning, spinnerColor } from '../lib/theme.js';
+import { warning, dim, spinnerColor } from '../lib/theme.js';
 
 export function registerProjectCommand(program) {
   const project = program
@@ -36,20 +36,31 @@ export function registerProjectCommand(program) {
 
   project
     .command('exec')
-    .description('Execute a bash command in a project sandbox')
+    .description('Execute bash commands in a project sandbox')
     .argument('<project_id>', 'Project ID')
-    .argument('<command>', 'Bash command to execute')
-    .action(async (projectId, command) => {
+    .argument('<commands...>', 'Bash commands to execute')
+    .option('--parallel', 'Run commands in parallel instead of sequentially')
+    .action(async (projectId, commands, options) => {
       try {
         await requireAuth();
 
         await apiPost(`/v1/projects/${projectId}/sandbox/connect`, {});
 
-        const response = await apiPost(`/v1/projects/${projectId}/sandbox/exec`, { command });
-        const { stdout, stderr, exitCode } = response.data;
+        const mode = options.parallel ? 'parallel' : 'sequential';
+        const response = await apiPost(`/v1/projects/${projectId}/sandbox/exec`, { commands, mode });
+        const results = response.data;
+        const multiple = results.length > 1;
 
-        if (stdout) process.stdout.write(stdout);
-        if (stderr) process.stderr.write(warning(stderr));
+        let exitCode = 0;
+        for (const result of results) {
+          if (multiple) {
+            console.log(dim(`> ${result.command}`));
+          }
+          if (result.stdout) process.stdout.write(result.stdout);
+          if (result.stderr) process.stderr.write(warning(result.stderr));
+          if (result.exitCode !== 0) exitCode = result.exitCode;
+          if (multiple) console.log();
+        }
 
         process.exit(exitCode);
       } catch (err) {

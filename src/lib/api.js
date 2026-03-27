@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import {
   getToken,
@@ -214,6 +214,18 @@ export async function apiUploadJson(path, data, onEvent, token) {
   }
 
   return parseSseResponse(res, onEvent);
+}
+
+/**
+ * Download a file from a pre-signed URL and save to disk.
+ */
+export async function apiDownloadFile(signedUrl, destPath) {
+  const res = await fetch(signedUrl);
+  if (!res.ok) {
+    throw new ApiError(`Download failed with status ${res.status}`, res.status);
+  }
+  writeFileSync(destPath, Buffer.from(await res.arrayBuffer()));
+  return destPath;
 }
 
 export { ApiError };

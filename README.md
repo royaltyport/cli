@@ -93,16 +93,16 @@ Display the AGENTS.md from the project sandbox — a filesystem overview with in
 royaltyport project info a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
-### `royaltyport project exec <project_id> "<command>"`
+### `royaltyport project exec <project_id> <commands...>`
 
-Execute a single bash command in the project sandbox. Commands run with the sandbox workspace root as the working directory.
+Execute one or more bash commands in the project sandbox. Commands run with the sandbox workspace root as the working directory.
 
 ```bash
-# List all contract folders
+# Single command
 royaltyport project exec $PROJECT_ID "ls contracts/"
 
-# Read project stats
-royaltyport project exec $PROJECT_ID "cat stats.yaml"
+# Multiple commands in one call (faster — reuses the same sandbox connection)
+royaltyport project exec $PROJECT_ID "ls contracts/" "cat stats.yaml"
 
 # Search for an entity by name
 royaltyport project exec $PROJECT_ID "grep -rl 'Sony Music' entities/"
@@ -111,7 +111,90 @@ royaltyport project exec $PROJECT_ID "grep -rl 'Sony Music' entities/"
 royaltyport project exec $PROJECT_ID "cat contracts/contract_123/extracted/royalties.yaml"
 ```
 
-stdout and stderr are written to their respective streams, and the process exits with the command's exit code — making it suitable for scripting and AI agent tool use.
+stdout and stderr are written to their respective streams, and the process exits with the last non-zero exit code (or 0 if all succeed) — making it suitable for scripting and AI agent tool use.
+
+### `royaltyport contracts upload <project_id> [file_path]`
+
+Upload a contract PDF to a project.
+
+```bash
+# Upload from file
+royaltyport contracts upload $PROJECT_ID contract.pdf
+
+# Upload with extractions
+royaltyport contracts upload $PROJECT_ID contract.pdf --extractions extract-royalties,extract-splits
+
+# Upload from base64
+royaltyport contracts upload $PROJECT_ID --base64 "$BASE64" --file-name contract.pdf
+```
+
+### `royaltyport contracts status <project_id> <staging_id>`
+
+Check processing status for a contract.
+
+```bash
+# Check once
+royaltyport contracts status $PROJECT_ID $STAGING_ID
+
+# Watch until complete
+royaltyport contracts status $PROJECT_ID $STAGING_ID --watch
+```
+
+### `royaltyport contracts list <project_id>`
+
+List contracts in a project.
+
+```bash
+royaltyport contracts list $PROJECT_ID
+royaltyport contracts list $PROJECT_ID --page 2 --per-page 50
+```
+
+### `royaltyport contracts download <project_id> <contract_id>`
+
+Download a contract file.
+
+```bash
+royaltyport contracts download $PROJECT_ID $CONTRACT_ID
+royaltyport contracts download $PROJECT_ID $CONTRACT_ID --output ./downloads/contract.pdf
+```
+
+### `royaltyport statements upload <project_id> [file_path]`
+
+Upload a statement PDF to a project.
+
+```bash
+royaltyport statements upload $PROJECT_ID statement.pdf
+
+# Upload from base64
+royaltyport statements upload $PROJECT_ID --base64 "$BASE64" --file-name statement.pdf
+```
+
+### `royaltyport statements status <project_id> <staging_id>`
+
+Check processing status for a statement.
+
+```bash
+royaltyport statements status $PROJECT_ID $STAGING_ID
+royaltyport statements status $PROJECT_ID $STAGING_ID --watch
+```
+
+### `royaltyport statements list <project_id>`
+
+List statements in a project.
+
+```bash
+royaltyport statements list $PROJECT_ID
+royaltyport statements list $PROJECT_ID --page 2 --per-page 50
+```
+
+### `royaltyport statements download <project_id> <statement_id>`
+
+Download a statement file.
+
+```bash
+royaltyport statements download $PROJECT_ID $STATEMENT_ID
+royaltyport statements download $PROJECT_ID $STATEMENT_ID --output ./downloads/statement.pdf
+```
 
 ## Agent Skill
 
