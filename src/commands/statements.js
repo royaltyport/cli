@@ -115,9 +115,11 @@ export function registerStatementsCommand(program) {
 
             if (!data.staging_done) {
               spinner.text = `Staging: ${data.staging_processes.stage}...`;
+            } else if (!data.processing_done) {
+              spinner.text = 'Processing statement...';
             }
 
-            if (data.staging_done) break;
+            if (data.staging_done && data.processing_done) break;
             await new Promise(r => setTimeout(r, 3000));
           }
 

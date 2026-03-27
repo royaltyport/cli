@@ -2,8 +2,8 @@ import { existsSync } from 'node:fs';
 import ora from 'ora';
 import { apiGet, apiUploadMultipart, apiUploadJson, apiDownloadFile, requireAuth } from '../lib/api.js';
 import { printTable, printError, printSuccess, printInfo } from '../lib/output.js';
-import { formatStatus, printProcessStatus } from '../lib/status.js';
-import { spinnerColor, dim, brand } from '../lib/theme.js';
+import { printProcessStatus } from '../lib/status.js';
+import { spinnerColor } from '../lib/theme.js';
 
 export function registerContractsCommand(program) {
   const contracts = program
