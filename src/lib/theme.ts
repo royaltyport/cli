@@ -9,6 +9,6 @@ export const warning = chalk.yellow;
 
 export const spinnerColor = 'white';
 
-export function brandBold(text) {
+export function brandBold(text: string): string {
   return chalk.bold(text);
 }

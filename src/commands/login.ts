@@ -1,18 +1,20 @@
 import { createInterface } from 'node:readline/promises';
+import type { Command } from 'commander';
 import ora from 'ora';
 import { apiGet } from '../lib/api.js';
 import { setToken, setApiUrl, setOAuthTokens, getConfigPath } from '../lib/config.js';
 import { startOAuthFlow } from '../lib/oauth.js';
 import { printError, printSuccess, printInfo } from '../lib/output.js';
 import { spinnerColor, dim } from '../lib/theme.js';
+import type { LoginOptions } from '../types/index.js';
 
-export function registerLoginCommand(program) {
+export function registerLoginCommand(program: Command): void {
   program
     .command('login')
     .description('Authenticate with Royaltyport (opens browser by default)')
     .option('-t, --token <token>', 'Use an API token (rp_...) instead of browser login')
     .option('--api-url <url>', 'Custom API URL (default: https://api.royaltyport.com)')
-    .action(async (options) => {
+    .action(async (options: LoginOptions) => {
       try {
         if (options.apiUrl) {
           setApiUrl(options.apiUrl);
@@ -36,13 +38,13 @@ export function registerLoginCommand(program) {
         // Browser-based OAuth login (default)
         await loginWithBrowser();
       } catch (err) {
-        printError(err.message);
+        printError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
     });
 }
 
-async function loginWithBrowser() {
+async function loginWithBrowser(): Promise<void> {
   printInfo('Opening browser for authentication...');
   printInfo(dim('Waiting for authorization (timeout: 120s)...'));
 
@@ -52,11 +54,12 @@ async function loginWithBrowser() {
 
   try {
     const response = await apiGet('/v1/projects', tokens.access_token);
-    const projectCount = Array.isArray(response.data) ? response.data.length : 0;
+    const projects = response.data as unknown[];
+    const projectCount = Array.isArray(projects) ? projects.length : 0;
     spinner.succeed(`Authenticated successfully (${projectCount} project${projectCount !== 1 ? 's' : ''} accessible)`);
   } catch (err) {
     spinner.fail('Session validation failed');
-    printError(err.message);
+    printError(err instanceof Error ? err.message : String(err));
     process.exit(1);
   }
 
@@ -65,7 +68,7 @@ async function loginWithBrowser() {
   printInfo(`Config stored at ${dim(getConfigPath())}`);
 }
 
-async function loginWithToken(token) {
+async function loginWithToken(token: string): Promise<void> {
   if (!token) {
     printError('Token cannot be empty.');
     process.exit(1);
@@ -75,11 +78,12 @@ async function loginWithToken(token) {
 
   try {
     const response = await apiGet('/v1/projects', token);
-    const projectCount = Array.isArray(response.data) ? response.data.length : 0;
+    const projects = response.data as unknown[];
+    const projectCount = Array.isArray(projects) ? projects.length : 0;
     spinner.succeed(`Authenticated successfully (${projectCount} project${projectCount !== 1 ? 's' : ''} accessible)`);
   } catch (err) {
     spinner.fail('Token validation failed');
-    printError(err.message);
+    printError(err instanceof Error ? err.message : String(err));
     process.exit(1);
   }
 

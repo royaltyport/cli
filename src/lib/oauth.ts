@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { randomBytes, createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
+import type { OAuthTokens } from '../types/index.js';
 import {
   OAUTH_CLIENT_ID,
   OAUTH_AUTH_URL,
@@ -9,7 +10,7 @@ import {
   OAUTH_AUTH_SCREEN,
 } from './constants.js';
 
-function base64url(buffer) {
+function base64url(buffer: Buffer): string {
   return buffer
     .toString('base64')
     .replace(/\+/g, '-')
@@ -17,13 +18,13 @@ function base64url(buffer) {
     .replace(/=+$/, '');
 }
 
-function generatePKCE() {
+function generatePKCE(): { verifier: string; challenge: string } {
   const verifier = base64url(randomBytes(32));
   const challenge = base64url(createHash('sha256').update(verifier).digest());
   return { verifier, challenge };
 }
 
-function openBrowser(url) {
+function openBrowser(url: string): void {
   const platform = process.platform;
   try {
     if (platform === 'darwin') {
@@ -38,7 +39,7 @@ function openBrowser(url) {
   }
 }
 
-export async function startOAuthFlow() {
+export async function startOAuthFlow(): Promise<OAuthTokens> {
   const { verifier, challenge } = generatePKCE();
   const state = base64url(randomBytes(16));
 
@@ -50,14 +51,14 @@ export async function startOAuthFlow() {
   authorizationUrl.searchParams.set('code_challenge_method', 'S256');
   authorizationUrl.searchParams.set('state', state);
 
-  return new Promise((resolve, reject) => {
+  return new Promise<OAuthTokens>((resolve, reject) => {
     const timeout = setTimeout(() => {
       server.close();
       reject(new Error('OAuth flow timed out after 120 seconds.'));
     }, 120_000);
 
     const server = createServer(async (req, res) => {
-      const url = new URL(req.url, `http://127.0.0.1:${OAUTH_CALLBACK_PORT}`);
+      const url = new URL(req.url ?? '/', `http://127.0.0.1:${OAUTH_CALLBACK_PORT}`);
 
       if (url.pathname !== '/callback') {
         res.writeHead(404);
@@ -67,17 +68,17 @@ export async function startOAuthFlow() {
 
       const code = url.searchParams.get('code');
       const returnedState = url.searchParams.get('state');
-      const error = url.searchParams.get('error');
+      const callbackError = url.searchParams.get('error');
 
       clearTimeout(timeout);
 
-      const resultUrl = (status) => `${OAUTH_AUTH_SCREEN}/oauth/result?status=${status}`;
+      const resultUrl = (status: string) => `${OAUTH_AUTH_SCREEN}/oauth/result?status=${status}`;
 
-      if (error) {
+      if (callbackError) {
         res.writeHead(302, { Location: resultUrl('denied') });
         res.end();
         server.close();
-        reject(new Error(`Authorization denied: ${error}`));
+        reject(new Error(`Authorization denied: ${callbackError}`));
         return;
       }
 
@@ -110,7 +111,7 @@ export async function startOAuthFlow() {
   });
 }
 
-async function exchangeCodeForTokens(code, codeVerifier) {
+async function exchangeCodeForTokens(code: string, codeVerifier: string): Promise<OAuthTokens> {
   const tokenUrl = `${OAUTH_AUTH_URL}/oauth/token`;
 
   const body = new URLSearchParams({
@@ -127,20 +128,22 @@ async function exchangeCodeForTokens(code, codeVerifier) {
     body: body.toString(),
   });
 
-  const data = await res.json();
+  const data = await res.json() as Record<string, unknown>;
 
   if (!res.ok) {
-    throw new Error(data.error_description || data.error || 'Token exchange failed');
+    throw new Error(
+      (data.error_description as string) || (data.error as string) || 'Token exchange failed',
+    );
   }
 
   return {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_in: data.expires_in,
+    access_token: data.access_token as string,
+    refresh_token: data.refresh_token as string,
+    expires_in: data.expires_in as number,
   };
 }
 
-export async function refreshAccessToken(refreshToken) {
+export async function refreshAccessToken(refreshToken: string): Promise<OAuthTokens> {
   const tokenUrl = `${OAUTH_AUTH_URL}/oauth/token`;
 
   const body = new URLSearchParams({
@@ -155,15 +158,17 @@ export async function refreshAccessToken(refreshToken) {
     body: body.toString(),
   });
 
-  const data = await res.json();
+  const data = await res.json() as Record<string, unknown>;
 
   if (!res.ok) {
-    throw new Error(data.error_description || data.error || 'Token refresh failed');
+    throw new Error(
+      (data.error_description as string) || (data.error as string) || 'Token refresh failed',
+    );
   }
 
   return {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_in: data.expires_in,
+    access_token: data.access_token as string,
+    refresh_token: data.refresh_token as string,
+    expires_in: data.expires_in as number,
   };
 }

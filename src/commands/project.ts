@@ -1,9 +1,11 @@
+import type { Command } from 'commander';
 import ora from 'ora';
 import { apiPost, apiGet, requireAuth } from '../lib/api.js';
 import { printError, printInfo } from '../lib/output.js';
 import { warning, dim, spinnerColor } from '../lib/theme.js';
+import type { ProjectExecOptions, ProjectExecResult, ProjectInfoResult } from '../types/index.js';
 
-export function registerProjectCommand(program) {
+export function registerProjectCommand(program: Command): void {
   const project = program
     .command('project')
     .description('Use bash commands to explore a project filesystem');
@@ -12,7 +14,7 @@ export function registerProjectCommand(program) {
     .command('info')
     .description('Show the AGENTS.md for a project sandbox (filesystem overview and instructions)')
     .argument('<project_id>', 'Project ID')
-    .action(async (projectId) => {
+    .action(async (projectId: string) => {
       try {
         await requireAuth();
 
@@ -23,13 +25,14 @@ export function registerProjectCommand(program) {
         const response = await apiGet(`/v1/projects/${projectId}/sandbox/files?path=${encodeURIComponent('AGENTS.md')}`);
         spinner.stop();
 
-        if (response.data?.type === 'file' && response.data.content) {
-          console.log(response.data.content);
+        const data = response.data as ProjectInfoResult;
+        if (data?.type === 'file' && data.content) {
+          console.log(data.content);
         } else {
           printInfo('No AGENTS.md found in this project sandbox.');
         }
       } catch (err) {
-        printError(err.message);
+        printError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
     });
@@ -40,7 +43,7 @@ export function registerProjectCommand(program) {
     .argument('<project_id>', 'Project ID')
     .argument('<commands...>', 'Bash commands to execute')
     .option('--parallel', 'Run commands in parallel instead of sequentially')
-    .action(async (projectId, commands, options) => {
+    .action(async (projectId: string, commands: string[], options: ProjectExecOptions) => {
       try {
         await requireAuth();
 
@@ -48,7 +51,7 @@ export function registerProjectCommand(program) {
 
         const mode = options.parallel ? 'parallel' : 'sequential';
         const response = await apiPost(`/v1/projects/${projectId}/sandbox/exec`, { commands, mode });
-        const results = response.data;
+        const results = response.data as ProjectExecResult[];
         const multiple = results.length > 1;
 
         let exitCode = 0;
@@ -64,7 +67,7 @@ export function registerProjectCommand(program) {
 
         process.exit(exitCode);
       } catch (err) {
-        printError(err.message);
+        printError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
     });

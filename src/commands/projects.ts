@@ -1,9 +1,11 @@
+import type { Command } from 'commander';
 import ora from 'ora';
 import { apiGet, requireAuth } from '../lib/api.js';
 import { printTable, printError, printInfo } from '../lib/output.js';
 import { spinnerColor } from '../lib/theme.js';
+import type { Project } from '../types/index.js';
 
-export function registerProjectsCommand(program) {
+export function registerProjectsCommand(program: Command): void {
   program
     .command('projects')
     .description('List available projects')
@@ -15,7 +17,7 @@ export function registerProjectsCommand(program) {
         const response = await apiGet('/v1/projects');
         spinner.stop();
 
-        const projects = response.data;
+        const projects = response.data as Project[];
         if (!projects || projects.length === 0) {
           printInfo('No projects found.');
           return;
@@ -29,7 +31,7 @@ export function registerProjectsCommand(program) {
 
         printTable(['ID', 'Name', 'Created'], rows);
       } catch (err) {
-        printError(err.message);
+        printError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
     });

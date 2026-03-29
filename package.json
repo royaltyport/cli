@@ -8,16 +8,27 @@
   },
   "scripts": {
     "start": "node bin/royaltyport.js",
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint",
     "link:cli": "sh scripts/link.sh",
     "unlink:cli": "sh scripts/unlink.sh",
-    "publish:cli": "sh scripts/publish.sh"
+    "publish:cli": "sh scripts/publish.sh",
+    "publish:beta": "sh scripts/publish-beta.sh",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "royaltyport",
     "cli"
   ],
   "license": "UNLICENSED",
+  "files": [
+    "dist",
+    "bin"
+  ],
   "engines": {
     "node": ">=18.0.0"
   },
@@ -26,5 +37,11 @@
     "commander": "^13.1.0",
     "conf": "^13.1.0",
     "ora": "^8.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
   }
 }

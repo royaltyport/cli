@@ -1,6 +1,7 @@
 import Conf from 'conf';
+import type { ConfigSchema } from '../types/index.js';
 
-const config = new Conf({
+const config = new Conf<ConfigSchema>({
   projectName: 'royaltyport',
   schema: {
     token: { type: 'string', default: '' },
@@ -12,11 +13,11 @@ const config = new Conf({
   },
 });
 
-export function getToken() {
+export function getToken(): string {
   return process.env.ROYALTYPORT_TOKEN || config.get('token');
 }
 
-export function setToken(token) {
+export function setToken(token: string): void {
   config.set('authMethod', 'token');
   config.set('token', token);
   config.set('accessToken', '');
@@ -24,33 +25,33 @@ export function setToken(token) {
   config.set('tokenExpiresAt', 0);
 }
 
-export function getApiUrl() {
+export function getApiUrl(): string {
   return process.env.ROYALTYPORT_API_URL || config.get('apiUrl');
 }
 
-export function setApiUrl(url) {
+export function setApiUrl(url: string): void {
   config.set('apiUrl', url);
 }
 
-export function getAuthMethod() {
+export function getAuthMethod(): string {
   return config.get('authMethod') || (config.get('token') ? 'token' : '');
 }
 
-export function getAccessToken() {
+export function getAccessToken(): string {
   return config.get('accessToken');
 }
 
-export function getRefreshToken() {
+export function getRefreshToken(): string {
   return config.get('refreshToken');
 }
 
-export function isTokenExpired() {
+export function isTokenExpired(): boolean {
   const expiresAt = config.get('tokenExpiresAt');
   if (!expiresAt) return true;
   return Date.now() >= expiresAt - 30_000; // 30s buffer
 }
 
-export function setOAuthTokens(accessToken, refreshToken, expiresIn) {
+export function setOAuthTokens(accessToken: string, refreshToken: string, expiresIn: number): void {
   config.set('authMethod', 'oauth');
   config.set('accessToken', accessToken);
   config.set('refreshToken', refreshToken);
@@ -58,10 +59,10 @@ export function setOAuthTokens(accessToken, refreshToken, expiresIn) {
   config.set('token', ''); // clear API token to avoid auth conflict
 }
 
-export function clearConfig() {
+export function clearConfig(): void {
   config.clear();
 }
 
-export function getConfigPath() {
+export function getConfigPath(): string {
   return config.path;
 }

@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import type { SseEvent, SseEventCallback } from '../types/index.js';
 import {
   getToken,
   getApiUrl,
@@ -11,8 +12,11 @@ import {
 } from './config.js';
 import { refreshAccessToken } from './oauth.js';
 
-class ApiError extends Error {
-  constructor(message, status, body) {
+export class ApiError extends Error {
+  readonly status: number;
+  readonly body: unknown;
+
+  constructor(message: string, status: number, body?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
@@ -20,28 +24,27 @@ class ApiError extends Error {
   }
 }
 
-function buildHeaders(token) {
+function buildHeaders(token: string): Record<string, string> {
   return {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
   };
 }
 
-async function parseResponse(res) {
+async function parseResponse(res: Response): Promise<Record<string, unknown>> {
   const text = await res.text();
   try {
-    return JSON.parse(text);
+    return JSON.parse(text) as Record<string, unknown>;
   } catch {
     return { message: text };
   }
 }
 
-
-async function parseSseResponse(res, onEvent) {
-  const reader = res.body.getReader();
+async function parseSseResponse(res: Response, onEvent?: SseEventCallback): Promise<Record<string, unknown>> {
+  const reader = res.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-  let result = null;
+  let result: Record<string, unknown> | null = null;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -49,7 +52,7 @@ async function parseSseResponse(res, onEvent) {
 
     buffer += decoder.decode(value, { stream: true });
     const parts = buffer.split('\n\n');
-    buffer = parts.pop();
+    buffer = parts.pop()!;
 
     for (const part of parts) {
       let event = 'message';
@@ -62,11 +65,11 @@ async function parseSseResponse(res, onEvent) {
 
       if (!data) continue;
 
-      const parsed = JSON.parse(data);
+      const parsed = JSON.parse(data) as Record<string, unknown>;
       onEvent?.({ event, data: parsed });
 
       if (event === 'error') {
-        throw new ApiError(parsed.message || 'Request failed', 500);
+        throw new ApiError((parsed.message as string) || 'Request failed', 500);
       }
       if (event === 'complete') {
         result = parsed;
@@ -81,8 +84,7 @@ async function parseSseResponse(res, onEvent) {
   return result;
 }
 
-
-export async function requireAuth() {
+export async function requireAuth(): Promise<string> {
   const method = getAuthMethod();
 
   if (method === 'oauth') {
@@ -111,7 +113,7 @@ export async function requireAuth() {
   return token;
 }
 
-export async function apiGet(path, token) {
+export async function apiGet(path: string, token?: string): Promise<Record<string, unknown>> {
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
   const res = await fetch(`${baseUrl}${path}`, {
@@ -120,13 +122,15 @@ export async function apiGet(path, token) {
   });
   const body = await parseResponse(res);
   if (!res.ok) {
-    const msg = body?.error?.message || body?.message || `Request failed with status ${res.status}`;
+    const msg = (body?.error as Record<string, unknown>)?.message as string
+      || (body?.message as string)
+      || `Request failed with status ${res.status}`;
     throw new ApiError(msg, res.status, body);
   }
   return body;
 }
 
-export async function apiPost(path, data, token) {
+export async function apiPost(path: string, data: unknown, token?: string): Promise<Record<string, unknown>> {
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
   const res = await fetch(`${baseUrl}${path}`, {
@@ -136,13 +140,15 @@ export async function apiPost(path, data, token) {
   });
   const body = await parseResponse(res);
   if (!res.ok) {
-    const msg = body?.error?.message || body?.message || `Request failed with status ${res.status}`;
+    const msg = (body?.error as Record<string, unknown>)?.message as string
+      || (body?.message as string)
+      || `Request failed with status ${res.status}`;
     throw new ApiError(msg, res.status, body);
   }
   return body;
 }
 
-export async function apiDelete(path, token) {
+export async function apiDelete(path: string, token?: string): Promise<Record<string, unknown>> {
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
   const res = await fetch(`${baseUrl}${path}`, {
@@ -151,16 +157,21 @@ export async function apiDelete(path, token) {
   });
   const body = await parseResponse(res);
   if (!res.ok) {
-    const msg = body?.error?.message || body?.message || `Request failed with status ${res.status}`;
+    const msg = (body?.error as Record<string, unknown>)?.message as string
+      || (body?.message as string)
+      || `Request failed with status ${res.status}`;
     throw new ApiError(msg, res.status, body);
   }
   return body;
 }
 
-/**
- * Upload a file via multipart/form-data while streaming SSE progress events.
- */
-export async function apiUploadMultipart(path, filePath, fields = {}, onEvent, token) {
+export async function apiUploadMultipart(
+  path: string,
+  filePath: string,
+  fields: Record<string, string> = {},
+  onEvent?: SseEventCallback,
+  token?: string,
+): Promise<Record<string, unknown>> {
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
 
@@ -184,17 +195,21 @@ export async function apiUploadMultipart(path, filePath, fields = {}, onEvent, t
 
   if (!res.ok) {
     const body = await parseResponse(res);
-    const msg = body?.error?.message || body?.message || `Request failed with status ${res.status}`;
+    const msg = (body?.error as Record<string, unknown>)?.message as string
+      || (body?.message as string)
+      || `Request failed with status ${res.status}`;
     throw new ApiError(msg, res.status, body);
   }
 
   return parseSseResponse(res, onEvent);
 }
 
-/**
- * POST JSON body while streaming SSE progress events.
- */
-export async function apiUploadJson(path, data, onEvent, token) {
+export async function apiUploadJson(
+  path: string,
+  data: unknown,
+  onEvent?: SseEventCallback,
+  token?: string,
+): Promise<Record<string, unknown>> {
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
 
@@ -209,17 +224,16 @@ export async function apiUploadJson(path, data, onEvent, token) {
 
   if (!res.ok) {
     const body = await parseResponse(res);
-    const msg = body?.error?.message || body?.message || `Request failed with status ${res.status}`;
+    const msg = (body?.error as Record<string, unknown>)?.message as string
+      || (body?.message as string)
+      || `Request failed with status ${res.status}`;
     throw new ApiError(msg, res.status, body);
   }
 
   return parseSseResponse(res, onEvent);
 }
 
-/**
- * Download a file from a pre-signed URL and save to disk.
- */
-export async function apiDownloadFile(signedUrl, destPath) {
+export async function apiDownloadFile(signedUrl: string, destPath: string): Promise<string> {
   const res = await fetch(signedUrl);
   if (!res.ok) {
     throw new ApiError(`Download failed with status ${res.status}`, res.status);
@@ -227,5 +241,3 @@ export async function apiDownloadFile(signedUrl, destPath) {
   writeFileSync(destPath, Buffer.from(await res.arrayBuffer()));
   return destPath;
 }
-
-export { ApiError };
