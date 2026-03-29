@@ -1,6 +1,6 @@
 {
   "name": "@royaltyport/cli",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Royaltyport CLI — authenticate, list projects, and connect to project file systems",
   "type": "module",
   "bin": {
