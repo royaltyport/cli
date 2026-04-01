@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 22
           cache: 'npm'
-      - run: npm ci
+      - run: npm install
       - run: npm run test:unit
 
   integration-tests:
@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 22
           cache: 'npm'
-      - run: npm ci
+      - run: npm install
       - run: npm run test:integration
         env:
           ROYALTYPORT_TEST_API_KEY: ${{ secrets.ROYALTYPORT_TEST_API_KEY }}
