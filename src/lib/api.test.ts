@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { apiGet, apiPost, requireAuth, apiUploadJson, ApiError } from './api.js';
+import { apiGet, apiPost, apiPostRetry, apiPutExternal, apiUploadFlow, requireAuth, ApiError, MAX_FILE_SIZE } from './api.js';
 
 vi.mock('./config.js', () => ({
   getToken: vi.fn(() => 'test-token'),
@@ -100,46 +100,206 @@ describe('api', () => {
     });
   });
 
-  describe('SSE parsing', () => {
-    it('parses progress and complete events from upload', async () => {
-      const sseBody = [
-        'event: progress\ndata: {"bytesUploaded":500,"bytesTotal":1000,"percent":50}\n\n',
-        'event: complete\ndata: {"data":{"staging_id":42}}\n\n',
-      ].join('');
+  describe('error envelope parsing', () => {
+    it('flattens Zod fieldErrors into a readable message', async () => {
+      fetchSpy.mockResolvedValue(mockResponse(
+        { error: { fileSize: ['fileSize exceeds maximum of 52428800 bytes'], fileName: ['Required'] } },
+        { status: 400 },
+      ));
 
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode(sseBody));
-          controller.close();
-        },
-      });
-
-      fetchSpy.mockResolvedValue(
-        new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+      await expect(apiGet('/v1/statements/uploads', 'token')).rejects.toThrow(
+        'fileSize: fileSize exceeds maximum of 52428800 bytes; fileName: Required',
       );
+    });
+  });
 
-      const events: unknown[] = [];
-      const result = await apiUploadJson('/v1/contracts', {}, (e) => events.push(e), 'token');
+  describe('apiPostRetry', () => {
+    it('retries on 429 honoring Retry-After, then succeeds', async () => {
+      fetchSpy
+        .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: 'rate limited' } }), {
+          status: 429,
+          headers: { 'Retry-After': '0' },
+        }))
+        .mockResolvedValueOnce(mockResponse({ data: { ok: true } }));
 
-      expect(events).toHaveLength(2);
-      expect(events[0]).toEqual({ event: 'progress', data: { bytesUploaded: 500, bytesTotal: 1000, percent: 50 } });
-      expect(result.data).toEqual({ staging_id: 42 });
+      const result = await apiPostRetry('/v1/statements/uploads', {}, {}, 'token');
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(result.data).toEqual({ ok: true });
     });
 
-    it('throws on SSE error event', async () => {
-      const sseBody = 'event: error\ndata: {"message":"Upload failed"}\n\n';
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode(sseBody));
-          controller.close();
-        },
+    it('does not retry non-retryable statuses', async () => {
+      fetchSpy.mockResolvedValue(mockResponse({ error: { message: 'bad request' } }, { status: 400 }));
+
+      await expect(apiPostRetry('/v1/test', {}, {}, 'token')).rejects.toThrow('bad request');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry network errors when retryNetworkErrors is false', async () => {
+      fetchSpy.mockRejectedValue(new TypeError('fetch failed'));
+
+      await expect(
+        apiPostRetry('/v1/statements/uploads/complete', { stagingId: 1 }, { retryNetworkErrors: false }, 'token'),
+      ).rejects.toThrow('fetch failed');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('apiPutExternal', () => {
+    it('PUTs to the exact signed URL without an Authorization header', async () => {
+      fetchSpy.mockResolvedValue(new Response('{}', { status: 200 }));
+      const signedUrl = 'https://storage.example.com/object/upload/sign/abc?token=xyz';
+      const bytes = new TextEncoder().encode('%PDF-1.4 test');
+
+      await apiPutExternal(signedUrl, {
+        headers: { 'content-type': 'application/pdf', 'x-upsert': 'true' },
+        body: bytes,
       });
 
-      fetchSpy.mockResolvedValue(
-        new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+      const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe(signedUrl);
+      expect(init.method).toBe('PUT');
+      const headers = init.headers as Record<string, string>;
+      expect(headers['Authorization']).toBeUndefined();
+      expect(headers['content-type']).toBe('application/pdf');
+      expect(headers['x-upsert']).toBe('true');
+      expect(init.body).toBe(bytes);
+    });
+
+    it('retries a 500 response and re-sends the body', async () => {
+      fetchSpy
+        .mockResolvedValueOnce(new Response('storage error', { status: 500 }))
+        .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+      const bytes = new TextEncoder().encode('%PDF-1.4 retry');
+
+      await apiPutExternal('https://storage.example.com/sign/abc', {
+        headers: { 'content-type': 'application/pdf', 'x-upsert': 'true' },
+        body: bytes,
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect((fetchSpy.mock.calls[1] as [string, RequestInit])[1].body).toBe(bytes);
+    });
+  });
+
+  describe('apiUploadFlow', () => {
+    const SIGNED_URL = 'https://storage.example.com/object/upload/sign/proj/statements_staging/9?token=xyz';
+
+    function mockFlowResponses() {
+      fetchSpy
+        .mockResolvedValueOnce(mockResponse(
+          { data: { staging_id: 123, upload_url: SIGNED_URL, file_path: 'proj/statements_staging/9' } },
+          { status: 201 },
+        ))
+        .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+        .mockResolvedValueOnce(mockResponse({ data: { staging_id: 123, status: 'uploaded' } }));
+    }
+
+    it('runs mint -> PUT -> complete in order with correct requests', async () => {
+      mockFlowResponses();
+      const bytes = new TextEncoder().encode('%PDF-1.4 unit test');
+
+      const result = await apiUploadFlow(
+        'statements',
+        'proj-1',
+        { bytes, fileName: 'statement.pdf' },
+        { token: 'token' },
       );
 
-      await expect(apiUploadJson('/v1/test', {}, undefined, 'token')).rejects.toThrow('Upload failed');
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+
+      const [mintUrl, mintInit] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      expect(mintUrl).toBe('https://api.example.com/v1/statements/uploads?projectId=proj-1');
+      expect(JSON.parse(mintInit.body as string)).toEqual({
+        fileName: 'statement.pdf',
+        fileType: 'application/pdf',
+        fileSize: bytes.byteLength,
+        fileExtension: 'pdf',
+      });
+
+      const [putUrl, putInit] = fetchSpy.mock.calls[1] as [string, RequestInit];
+      expect(putUrl).toBe(SIGNED_URL);
+      expect((putInit.headers as Record<string, string>)['Authorization']).toBeUndefined();
+
+      const [completeUrl, completeInit] = fetchSpy.mock.calls[2] as [string, RequestInit];
+      expect(completeUrl).toBe('https://api.example.com/v1/statements/uploads/complete?projectId=proj-1');
+      expect(JSON.parse(completeInit.body as string)).toEqual({ stagingId: 123 });
+
+      expect(result).toEqual({ staging_id: 123, status: 'uploaded', file_path: 'proj/statements_staging/9' });
+    });
+
+    it('sends extractions as a real JSON array and reports steps', async () => {
+      mockFlowResponses();
+      const steps: string[] = [];
+
+      await apiUploadFlow(
+        'contracts',
+        'proj-1',
+        { bytes: new TextEncoder().encode('%PDF-1.4'), fileName: 'contract.pdf' },
+        { extractions: ['extract-dates', 'extract-signatures'], token: 'token', onStep: (s) => steps.push(s) },
+      );
+
+      const mintBody = JSON.parse((fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as string);
+      expect(mintBody.extractions).toEqual(['extract-dates', 'extract-signatures']);
+      expect(steps).toEqual(['Requesting upload URL', 'Uploading file', 'Finalizing upload']);
+    });
+
+    it('omits fileExtension for dot-less file names', async () => {
+      mockFlowResponses();
+
+      await apiUploadFlow(
+        'statements',
+        'proj-1',
+        { bytes: new TextEncoder().encode('%PDF-1.4'), fileName: 'statement' },
+        { token: 'token' },
+      );
+
+      const mintBody = JSON.parse((fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as string);
+      expect(mintBody).not.toHaveProperty('fileExtension');
+    });
+
+    it('rejects oversized files locally with zero network calls', async () => {
+      await expect(
+        apiUploadFlow(
+          'statements',
+          'proj-1',
+          { bytes: new Uint8Array(MAX_FILE_SIZE + 1), fileName: 'big.pdf' },
+          { token: 'token' },
+        ),
+      ).rejects.toThrow('fileSize exceeds maximum');
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('rejects non-PDF extensions locally with zero network calls', async () => {
+      await expect(
+        apiUploadFlow(
+          'statements',
+          'proj-1',
+          { bytes: new TextEncoder().encode('a,b,c'), fileName: 'data.csv' },
+          { token: 'token' },
+        ),
+      ).rejects.toThrow('Only PDF files');
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('does not retry an ambiguous network failure at complete and surfaces the staging ID', async () => {
+      fetchSpy
+        .mockResolvedValueOnce(mockResponse(
+          { data: { staging_id: 123, upload_url: SIGNED_URL, file_path: 'p' } },
+          { status: 201 },
+        ))
+        .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+        .mockRejectedValueOnce(new TypeError('fetch failed'));
+
+      await expect(
+        apiUploadFlow(
+          'statements',
+          'proj-1',
+          { bytes: new TextEncoder().encode('%PDF-1.4'), fileName: 's.pdf' },
+          { token: 'token' },
+        ),
+      ).rejects.toThrow(/staging ID 123.*royaltyport statements complete proj-1 123/s);
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
     });
   });
 });

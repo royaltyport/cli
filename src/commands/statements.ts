@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
-import { apiGet, apiUploadMultipart, apiUploadJson, apiDownloadFile, requireAuth } from '../lib/api.js';
+import { apiGet, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
 import { printTable, printError, printSuccess, printInfo } from '../lib/output.js';
 import { printProcessStatus } from '../lib/status.js';
 import { spinnerColor } from '../lib/theme.js';
@@ -10,12 +10,10 @@ import type {
   StatementsStatusOptions,
   StatementsListOptions,
   StatementsDownloadOptions,
-  StatementUploadResult,
   StatementProcesses,
   PaginatedResult,
   Statement,
   DownloadResult,
-  SseEvent,
 } from '../types/index.js';
 
 export function registerStatementsCommand(program: Command): void {
@@ -25,7 +23,7 @@ export function registerStatementsCommand(program: Command): void {
 
   statements
     .command('upload')
-    .description('Upload a statement PDF to a project')
+    .description('Upload a statement PDF to a project (max 50 MB, PDF only)')
     .argument('<project_id>', 'Project ID (UUID)')
     .argument('[file_path]', 'Path to the PDF file')
     .option('--base64 <string>', 'Base64-encoded file content (alternative to file_path)')
@@ -49,53 +47,61 @@ export function registerStatementsCommand(program: Command): void {
           printError('--file-name is required when using --base64.');
           process.exit(1);
         }
+        if (hasFile && !existsSync(filePath!)) {
+          printError(`File not found: ${filePath}`);
+          process.exit(1);
+        }
 
         const spinner = ora({ text: 'Uploading statement...', color: spinnerColor }).start();
 
-        const onProgress = ({ event, data: eventData }: SseEvent) => {
-          if (event === 'progress') {
-            spinner.text = `Uploading statement... ${eventData.percent}%`;
-          }
-        };
-
-        let data: Record<string, unknown>;
-        if (hasBase64) {
-          data = await apiUploadJson(
-            `/v1/statements?projectId=${projectId}`,
-            { file: options.base64, fileName: options.fileName },
-            onProgress,
+        let result;
+        try {
+          result = await apiUploadFlow(
+            'statements',
+            projectId,
+            { filePath, base64: options.base64, fileName: options.fileName },
+            { onStep: (label) => { spinner.text = `${label}...`; } },
           );
-        } else {
-          if (!existsSync(filePath!)) {
-            spinner.stop();
-            printError(`File not found: ${filePath}`);
-            process.exit(1);
-          }
-          data = await apiUploadMultipart(
-            `/v1/statements?projectId=${projectId}`,
-            filePath!,
-            {},
-            onProgress,
-          );
+        } finally {
+          spinner.stop();
         }
 
-        spinner.stop();
-
-        const statement = data.data as StatementUploadResult;
         printSuccess('Statement uploaded successfully.');
         console.log();
         printTable(
           ['Field', 'Value'],
           [
-            ['Staging ID', statement.staging_id],
-            ['Staging Stage', statement.staging_stage],
-            ['Staging Done', statement.staging_done ? 'yes' : 'no'],
-            ['Processing Done', statement.processing_done ? 'yes' : 'no'],
-            ['Created At', new Date(statement.created_at).toLocaleString()],
+            ['Staging ID', result.staging_id],
+            ['Status', result.status],
+            ['File Path', result.file_path],
           ],
         );
         console.log();
-        printInfo(`Track progress: royaltyport statements status ${projectId} ${statement.staging_id}`);
+        printInfo(`Track progress: royaltyport statements status ${projectId} ${result.staging_id}`);
+      } catch (err) {
+        printError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  statements
+    .command('complete')
+    .description('Re-run upload finalization for a statement whose file bytes are already uploaded')
+    .argument('<project_id>', 'Project ID (UUID)')
+    .argument('<staging_id>', 'Staging ID (returned from upload)')
+    .action(async (projectId: string, stagingId: string) => {
+      try {
+        await requireAuth();
+
+        const spinner = ora({ text: 'Finalizing upload...', color: spinnerColor }).start();
+        try {
+          await apiUploadComplete('statements', projectId, Number(stagingId));
+        } finally {
+          spinner.stop();
+        }
+
+        printSuccess('Statement upload finalized.');
+        printInfo(`Track progress: royaltyport statements status ${projectId} ${stagingId}`);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
         process.exit(1);

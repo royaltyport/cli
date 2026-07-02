@@ -1,5 +1,5 @@
-import { apiGet, apiPost, apiUploadMultipart, apiUploadJson, apiDownloadFile } from '../../src/lib/api.js';
-import type { SseEventCallback } from '../../src/types/index.js';
+import { apiGet, apiPost, apiUploadFlow, apiDownloadFile } from '../../src/lib/api.js';
+import type { UploadFlowInput, UploadFlowOptions } from '../../src/types/index.js';
 
 const TOKEN = process.env.ROYALTYPORT_TEST_API_KEY;
 const BASE_URL = process.env.ROYALTYPORT_TEST_BASE_URL ?? 'https://api.royaltyport.com';
@@ -25,12 +25,12 @@ export async function post(path: string, data: unknown) {
   return apiPost(path, data, TOKEN);
 }
 
-export async function uploadMultipart(path: string, filePath: string, fields?: Record<string, string>, onEvent?: SseEventCallback) {
-  return apiUploadMultipart(path, filePath, fields, onEvent, TOKEN);
-}
-
-export async function uploadJson(path: string, data: unknown, onEvent?: SseEventCallback) {
-  return apiUploadJson(path, data, onEvent, TOKEN);
+export async function upload(
+  resource: 'statements' | 'contracts',
+  input: UploadFlowInput,
+  options: Omit<UploadFlowOptions, 'token'> = {},
+) {
+  return apiUploadFlow(resource, PROJECT_ID, input, { ...options, token: TOKEN });
 }
 
 export { apiDownloadFile };

@@ -6,14 +6,6 @@ export interface Contract {
   created_at: string;
 }
 
-export interface ContractUploadResult {
-  staging_id: number;
-  staging_stage: string;
-  staging_done: boolean;
-  extractions_done: boolean;
-  created_at: string;
-}
-
 export interface ContractProcesses {
   staging_id: number;
   contract_id: number | null;

@@ -6,14 +6,6 @@ export interface Statement {
   created_at: string;
 }
 
-export interface StatementUploadResult {
-  staging_id: number;
-  staging_stage: string;
-  staging_done: boolean;
-  processing_done: boolean;
-  created_at: string;
-}
-
 export interface StatementProcesses {
   staging_id: number;
   statement_id: number | null;

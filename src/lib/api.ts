@@ -1,6 +1,7 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import type { SseEvent, SseEventCallback } from '../types/index.js';
+import type { UploadFlowInput, UploadFlowOptions, UploadFlowResult, UploadUrlResult } from '../types/index.js';
 import {
   getToken,
   getApiUrl,
@@ -11,6 +12,13 @@ import {
   setOAuthTokens,
 } from './config.js';
 import { refreshAccessToken } from './oauth.js';
+
+export const MAX_FILE_SIZE = 52_428_800; // 50 MB, enforced server-side at complete
+export const ALLOWED_FILE_TYPE = 'application/pdf';
+
+const MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 500;
+const RETRY_MAX_DELAY_MS = 60_000;
 
 export class ApiError extends Error {
   readonly status: number;
@@ -40,48 +48,38 @@ async function parseResponse(res: Response): Promise<Record<string, unknown>> {
   }
 }
 
-async function parseSseResponse(res: Response, onEvent?: SseEventCallback): Promise<Record<string, unknown>> {
-  const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let result: Record<string, unknown> | null = null;
+function throwApiError(res: Response, body: Record<string, unknown>): never {
+  const error = body?.error as Record<string, unknown> | string | undefined;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  // Zod validation failures arrive as fieldErrors with no .message:
+  // { "error": { "fileSize": ["fileSize exceeds maximum..."] } }
+  let fields: Record<string, string[]> | undefined;
+  if (typeof error === 'object' && error !== null && error.message === undefined) {
+    fields = error as Record<string, string[]>;
+  }
 
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split('\n\n');
-    buffer = parts.pop()!;
+  const msg = (typeof error === 'object' ? error?.message as string : undefined)
+    || (fields && Object.entries(fields)
+      .map(([field, msgs]) => `${field}: ${(Array.isArray(msgs) ? msgs : [msgs]).join(', ')}`)
+      .join('; '))
+    || (typeof error === 'string' ? error : undefined)
+    || (body?.message as string)
+    || `Request failed with status ${res.status}`;
+  throw new ApiError(msg, res.status, body);
+}
 
-    for (const part of parts) {
-      let event = 'message';
-      let data = '';
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-      for (const line of part.split('\n')) {
-        if (line.startsWith('event: ')) event = line.slice(7);
-        else if (line.startsWith('data: ')) data = line.slice(6);
-      }
-
-      if (!data) continue;
-
-      const parsed = JSON.parse(data) as Record<string, unknown>;
-      onEvent?.({ event, data: parsed });
-
-      if (event === 'error') {
-        throw new ApiError((parsed.message as string) || 'Request failed', 500);
-      }
-      if (event === 'complete') {
-        result = parsed;
-      }
+function retryDelay(attempt: number, headers?: Headers): number {
+  const retryAfterHeader = headers?.get('retry-after');
+  if (retryAfterHeader != null && retryAfterHeader !== '') {
+    const seconds = Number(retryAfterHeader);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return seconds * 1000;
     }
   }
-
-  if (!result) {
-    throw new ApiError('Stream ended without a complete event', 500);
-  }
-
-  return result;
+  const delay = RETRY_BASE_DELAY_MS * 2 ** attempt;
+  return Math.min(delay + delay * 0.1 * Math.random(), RETRY_MAX_DELAY_MS);
 }
 
 export async function requireAuth(): Promise<string> {
@@ -122,10 +120,7 @@ export async function apiGet(path: string, token?: string): Promise<Record<strin
   });
   const body = await parseResponse(res);
   if (!res.ok) {
-    const msg = (body?.error as Record<string, unknown>)?.message as string
-      || (body?.message as string)
-      || `Request failed with status ${res.status}`;
-    throw new ApiError(msg, res.status, body);
+    throwApiError(res, body);
   }
   return body;
 }
@@ -140,10 +135,7 @@ export async function apiPost(path: string, data: unknown, token?: string): Prom
   });
   const body = await parseResponse(res);
   if (!res.ok) {
-    const msg = (body?.error as Record<string, unknown>)?.message as string
-      || (body?.message as string)
-      || `Request failed with status ${res.status}`;
-    throw new ApiError(msg, res.status, body);
+    throwApiError(res, body);
   }
   return body;
 }
@@ -157,80 +149,190 @@ export async function apiDelete(path: string, token?: string): Promise<Record<st
   });
   const body = await parseResponse(res);
   if (!res.ok) {
-    const msg = (body?.error as Record<string, unknown>)?.message as string
-      || (body?.message as string)
-      || `Request failed with status ${res.status}`;
-    throw new ApiError(msg, res.status, body);
+    throwApiError(res, body);
   }
   return body;
 }
 
-export async function apiUploadMultipart(
-  path: string,
-  filePath: string,
-  fields: Record<string, string> = {},
-  onEvent?: SseEventCallback,
-  token?: string,
-): Promise<Record<string, unknown>> {
-  const baseUrl = getApiUrl();
-  const resolvedToken = token || await requireAuth();
-
-  const fileBuffer = readFileSync(filePath);
-  const fileName = basename(filePath);
-
-  const form = new FormData();
-  for (const [key, value] of Object.entries(fields)) {
-    form.append(key, value);
-  }
-  form.append('file', new Blob([fileBuffer], { type: 'application/pdf' }), fileName);
-
-  const res = await fetch(`${baseUrl}${path}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${resolvedToken}`,
-      'Accept': 'text/event-stream',
-    },
-    body: form,
-  });
-
-  if (!res.ok) {
-    const body = await parseResponse(res);
-    const msg = (body?.error as Record<string, unknown>)?.message as string
-      || (body?.message as string)
-      || `Request failed with status ${res.status}`;
-    throw new ApiError(msg, res.status, body);
-  }
-
-  return parseSseResponse(res, onEvent);
+export interface PostRetryOptions {
+  // When false, a network failure after the request is sent is NOT retried:
+  // the server may have already received and acted on it (used for uploads/complete).
+  retryNetworkErrors?: boolean;
 }
 
-export async function apiUploadJson(
+export async function apiPostRetry(
   path: string,
   data: unknown,
-  onEvent?: SseEventCallback,
+  options: PostRetryOptions = {},
   token?: string,
 ): Promise<Record<string, unknown>> {
+  const { retryNetworkErrors = true } = options;
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
 
-  const res = await fetch(`${baseUrl}${path}`, {
-    method: 'POST',
-    headers: {
-      ...buildHeaders(resolvedToken),
-      'Accept': 'text/event-stream',
-    },
-    body: JSON.stringify(data),
-  });
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(`${baseUrl}${path}`, {
+        method: 'POST',
+        headers: buildHeaders(resolvedToken),
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      lastError = err;
+      if (retryNetworkErrors && attempt < MAX_RETRIES) {
+        await sleep(retryDelay(attempt));
+        continue;
+      }
+      throw err;
+    }
 
-  if (!res.ok) {
-    const body = await parseResponse(res);
-    const msg = (body?.error as Record<string, unknown>)?.message as string
-      || (body?.message as string)
-      || `Request failed with status ${res.status}`;
-    throw new ApiError(msg, res.status, body);
+    if (res.ok) {
+      return parseResponse(res);
+    }
+    if (attempt < MAX_RETRIES && (res.status === 429 || res.status >= 500)) {
+      await sleep(retryDelay(attempt, res.headers));
+      continue;
+    }
+    throwApiError(res, await parseResponse(res));
   }
 
-  return parseSseResponse(res, onEvent);
+  throw lastError;
+}
+
+// PUT raw bytes to an absolute signed storage URL. The URL authorizes itself via
+// its query string — no Authorization header, no base-URL prefixing.
+export async function apiPutExternal(
+  url: string,
+  opts: { headers: Record<string, string>; body: Uint8Array },
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'PUT',
+        headers: opts.headers,
+        body: opts.body as BodyInit,
+      });
+    } catch (err) {
+      lastError = err;
+      if (attempt < MAX_RETRIES) {
+        await sleep(retryDelay(attempt));
+        continue;
+      }
+      throw err;
+    }
+
+    if (res.ok) return;
+    if (attempt < MAX_RETRIES && (res.status === 429 || res.status >= 500)) {
+      await sleep(retryDelay(attempt, res.headers));
+      continue;
+    }
+    const text = await res.text();
+    throw new ApiError(text || `Upload failed with status ${res.status}`, res.status);
+  }
+
+  throw lastError;
+}
+
+// 3-step signed-URL upload: mint an upload URL, PUT the bytes to storage, complete.
+export async function apiUploadFlow(
+  resource: 'statements' | 'contracts',
+  projectId: string,
+  input: UploadFlowInput,
+  options: UploadFlowOptions = {},
+): Promise<UploadFlowResult> {
+  let bytes: Uint8Array;
+  let fileName: string;
+  if (input.bytes) {
+    bytes = input.bytes;
+    fileName = input.fileName ?? 'upload.pdf';
+  } else if (input.filePath) {
+    bytes = new Uint8Array(await readFile(input.filePath));
+    fileName = input.fileName ?? basename(input.filePath);
+  } else if (input.base64) {
+    bytes = new Uint8Array(Buffer.from(input.base64, 'base64'));
+    fileName = input.fileName ?? 'upload.pdf';
+  } else {
+    throw new ApiError('No file provided.', 400);
+  }
+
+  const fileType = ALLOWED_FILE_TYPE;
+  const fileSize = bytes.byteLength;
+  const dot = fileName.lastIndexOf('.');
+  const fileExtension = dot > 0 ? fileName.slice(dot + 1) : undefined;
+
+  // Preflight: reject locally before any network call
+  if (fileExtension && fileExtension.toLowerCase() !== 'pdf') {
+    throw new ApiError(`Only PDF files can be uploaded (got .${fileExtension}).`, 400);
+  }
+  if (fileSize > MAX_FILE_SIZE) {
+    throw new ApiError(`fileSize exceeds maximum of ${MAX_FILE_SIZE} bytes (50 MB).`, 400);
+  }
+
+  options.onStep?.('Requesting upload URL');
+  const mint = await apiPostRetry(
+    `/v1/${resource}/uploads?projectId=${projectId}`,
+    {
+      fileName,
+      fileType,
+      fileSize,
+      ...(fileExtension && { fileExtension }),
+      ...(options.extractions && { extractions: options.extractions }),
+    },
+    {},
+    options.token,
+  );
+  const { staging_id, upload_url, file_path } = mint.data as unknown as UploadUrlResult;
+
+  options.onStep?.('Uploading file');
+  try {
+    await apiPutExternal(upload_url, {
+      headers: { 'content-type': fileType, 'x-upsert': 'true' },
+      body: bytes,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new ApiError(
+      `Failed to upload file bytes (staging ID ${staging_id}): ${msg}`,
+      err instanceof ApiError ? err.status : 0,
+    );
+  }
+
+  options.onStep?.('Finalizing upload');
+  try {
+    await apiPostRetry(
+      `/v1/${resource}/uploads/complete?projectId=${projectId}`,
+      { stagingId: staging_id },
+      { retryNetworkErrors: false },
+      options.token,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new ApiError(
+      `The file was uploaded (staging ID ${staging_id}) but finalizing failed: ${msg} `
+      + `Re-run finalization without re-uploading: royaltyport ${resource} complete ${projectId} ${staging_id}`,
+      err instanceof ApiError ? err.status : 0,
+    );
+  }
+
+  return { staging_id, status: 'uploaded', file_path };
+}
+
+export async function apiUploadComplete(
+  resource: 'statements' | 'contracts',
+  projectId: string,
+  stagingId: number,
+  token?: string,
+): Promise<Record<string, unknown>> {
+  return apiPostRetry(
+    `/v1/${resource}/uploads/complete?projectId=${projectId}`,
+    { stagingId },
+    { retryNetworkErrors: false },
+    token,
+  );
 }
 
 export async function apiDownloadFile(signedUrl: string, destPath: string): Promise<string> {

@@ -67,12 +67,17 @@ stdout and stderr stream to their respective outputs. The process exits with the
 
 ### Upload a contract
 
+Uploads are PDF only, max 50 MB. There is no upload progress percentage; processing happens
+server-side after the command returns — poll it with `contracts status --watch`. If an upload
+fails after the file bytes were stored, the error names a staging ID — finalize it with
+`royaltyport contracts complete <project_id> <staging_id>` instead of re-uploading.
+
 ```bash
 # Upload from file
 royaltyport contracts upload <project_id> contract.pdf
 
 # Upload with extractions
-royaltyport contracts upload <project_id> contract.pdf --extractions extract-royalties,extract-splits,extract-entities
+royaltyport contracts upload <project_id> contract.pdf --extractions extract-royalties,extract-splits
 
 # Upload from base64
 royaltyport contracts upload <project_id> --base64 "$BASE64" --file-name contract.pdf
@@ -107,6 +112,11 @@ royaltyport contracts download <project_id> <contract_id> --output ./downloads/c
 ## Statement Management
 
 ### Upload a statement
+
+Uploads are PDF only, max 50 MB. There is no upload progress percentage; processing happens
+server-side after the command returns — poll it with `statements status --watch`. If an upload
+fails after the file bytes were stored, finalize it with
+`royaltyport statements complete <project_id> <staging_id>` instead of re-uploading.
 
 ```bash
 # Upload from file

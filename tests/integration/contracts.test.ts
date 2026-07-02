@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { get, uploadJson, PROJECT_ID } from './setup.js';
-import type { ContractUploadResult, ContractProcesses } from '../../src/types/index.js';
-import type { SseEvent } from '../../src/types/index.js';
+import { get, upload, PROJECT_ID } from './setup.js';
+import type { ContractProcesses } from '../../src/types/index.js';
 
 describe('Contracts (integration)', () => {
   it('lists contracts', async () => {
@@ -23,27 +22,21 @@ describe('Contracts (integration)', () => {
   describe('upload -> processes', () => {
     let uploadedStagingId: number;
 
-    it('uploads a contract via JSON with SSE progress', async () => {
+    it('uploads a contract via the signed-URL flow with extractions', async () => {
+      // The server validates real bytes at complete — content must start with %PDF-
       const testContent = Buffer.from('%PDF-1.4 CLI integration test contract').toString('base64');
 
-      const events: SseEvent[] = [];
-      const result = await uploadJson(
-        `/v1/contracts?projectId=${PROJECT_ID}`,
-        {
-          file: testContent,
-          fileName: 'cli-test-contract.pdf',
-          fileType: 'application/pdf',
-          extractions: ['extract-dates', 'extract-signatures'],
-        },
-        (e) => events.push(e),
+      const result = await upload(
+        'contracts',
+        { base64: testContent, fileName: 'cli-test-contract.pdf' },
+        { extractions: ['extract-dates', 'extract-signatures'] },
       );
 
-      const contract = result.data as ContractUploadResult;
-      expect(contract).toHaveProperty('staging_id');
-      expect(typeof contract.staging_id).toBe('number');
-      expect(contract).toHaveProperty('created_at');
+      expect(typeof result.staging_id).toBe('number');
+      expect(result.status).toBe('uploaded');
+      expect(typeof result.file_path).toBe('string');
 
-      uploadedStagingId = contract.staging_id;
+      uploadedStagingId = result.staging_id;
     });
 
     it('gets contract processes', async () => {

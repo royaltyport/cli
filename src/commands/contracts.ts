@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
-import { apiGet, apiUploadMultipart, apiUploadJson, apiDownloadFile, requireAuth } from '../lib/api.js';
+import { apiGet, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
 import { printTable, printError, printSuccess, printInfo } from '../lib/output.js';
 import { printProcessStatus } from '../lib/status.js';
 import { spinnerColor } from '../lib/theme.js';
@@ -10,12 +10,10 @@ import type {
   ContractsStatusOptions,
   ContractsListOptions,
   ContractsDownloadOptions,
-  ContractUploadResult,
   ContractProcesses,
   PaginatedResult,
   Contract,
   DownloadResult,
-  SseEvent,
 } from '../types/index.js';
 
 export function registerContractsCommand(program: Command): void {
@@ -25,12 +23,12 @@ export function registerContractsCommand(program: Command): void {
 
   contracts
     .command('upload')
-    .description('Upload a contract PDF to a project')
+    .description('Upload a contract PDF to a project (max 50 MB, PDF only)')
     .argument('<project_id>', 'Project ID (UUID)')
     .argument('[file_path]', 'Path to the PDF file')
     .option('--base64 <string>', 'Base64-encoded file content (alternative to file_path)')
     .option('--file-name <name>', 'File name (required with --base64)')
-    .option('--extractions <list>', 'Comma-separated extraction IDs: extract-accounting-period, extract-assets, extract-commitments, extract-compensations, extract-control-areas, extract-costs, extract-creative-approvals, extract-dates, extract-royalties, extract-signatures, extract-splits, extract-targets')
+    .option('--extractions <list>', 'Comma-separated extraction IDs: extract-accounting-period, extract-assets, extract-balances, extract-commitments, extract-compensations, extract-control-areas, extract-costs, extract-creative-approvals, extract-dates, extract-royalties, extract-signatures, extract-splits, extract-targets')
     .action(async (projectId: string, filePath: string | undefined, options: ContractsUploadOptions) => {
       try {
         await requireAuth();
@@ -50,6 +48,10 @@ export function registerContractsCommand(program: Command): void {
           printError('--file-name is required when using --base64.');
           process.exit(1);
         }
+        if (hasFile && !existsSync(filePath!)) {
+          printError(`File not found: ${filePath}`);
+          process.exit(1);
+        }
 
         const extractions = options.extractions
           ? options.extractions.split(',').map(e => e.trim()).filter(Boolean)
@@ -57,50 +59,54 @@ export function registerContractsCommand(program: Command): void {
 
         const spinner = ora({ text: 'Uploading contract...', color: spinnerColor }).start();
 
-        const onProgress = ({ event, data: eventData }: SseEvent) => {
-          if (event === 'progress') {
-            spinner.text = `Uploading contract... ${eventData.percent}%`;
-          }
-        };
-
-        let data: Record<string, unknown>;
-        if (hasBase64) {
-          data = await apiUploadJson(
-            `/v1/contracts?projectId=${projectId}`,
-            { file: options.base64, fileName: options.fileName, ...(extractions && { extractions }) },
-            onProgress,
+        let result;
+        try {
+          result = await apiUploadFlow(
+            'contracts',
+            projectId,
+            { filePath, base64: options.base64, fileName: options.fileName },
+            { extractions, onStep: (label) => { spinner.text = `${label}...`; } },
           );
-        } else {
-          if (!existsSync(filePath!)) {
-            spinner.stop();
-            printError(`File not found: ${filePath}`);
-            process.exit(1);
-          }
-          data = await apiUploadMultipart(
-            `/v1/contracts?projectId=${projectId}`,
-            filePath!,
-            { ...(extractions && { extractions: JSON.stringify(extractions) }) },
-            onProgress,
-          );
+        } finally {
+          spinner.stop();
         }
 
-        spinner.stop();
-
-        const contract = data.data as ContractUploadResult;
         printSuccess('Contract uploaded successfully.');
         console.log();
         printTable(
           ['Field', 'Value'],
           [
-            ['Staging ID', contract.staging_id],
-            ['Staging Stage', contract.staging_stage],
-            ['Staging Done', contract.staging_done ? 'yes' : 'no'],
-            ['Extractions Done', contract.extractions_done ? 'yes' : 'no'],
-            ['Created At', new Date(contract.created_at).toLocaleString()],
+            ['Staging ID', result.staging_id],
+            ['Status', result.status],
+            ['File Path', result.file_path],
           ],
         );
         console.log();
-        printInfo(`Track progress: royaltyport contracts status ${projectId} ${contract.staging_id}`);
+        printInfo(`Track progress: royaltyport contracts status ${projectId} ${result.staging_id}`);
+      } catch (err) {
+        printError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  contracts
+    .command('complete')
+    .description('Re-run upload finalization for a contract whose file bytes are already uploaded')
+    .argument('<project_id>', 'Project ID (UUID)')
+    .argument('<staging_id>', 'Staging ID (returned from upload)')
+    .action(async (projectId: string, stagingId: string) => {
+      try {
+        await requireAuth();
+
+        const spinner = ora({ text: 'Finalizing upload...', color: spinnerColor }).start();
+        try {
+          await apiUploadComplete('contracts', projectId, Number(stagingId));
+        } finally {
+          spinner.stop();
+        }
+
+        printSuccess('Contract upload finalized.');
+        printInfo(`Track progress: royaltyport contracts status ${projectId} ${stagingId}`);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
         process.exit(1);

@@ -115,7 +115,9 @@ stdout and stderr are written to their respective streams, and the process exits
 
 ### `royaltyport contracts upload <project_id> [file_path]`
 
-Upload a contract PDF to a project.
+Upload a contract PDF to a project. PDF only, max 50 MB. The upload runs as a three-step
+signed-URL flow (there is no upload progress percentage); server-side processing continues
+after the command returns — track it with `contracts status --watch`.
 
 ```bash
 # Upload from file
@@ -126,6 +128,15 @@ royaltyport contracts upload $PROJECT_ID contract.pdf --extractions extract-roya
 
 # Upload from base64
 royaltyport contracts upload $PROJECT_ID --base64 "$BASE64" --file-name contract.pdf
+```
+
+### `royaltyport contracts complete <project_id> <staging_id>`
+
+Re-run upload finalization when an upload failed after the file bytes were already stored
+(the error message will point here). Does not re-upload the file.
+
+```bash
+royaltyport contracts complete $PROJECT_ID $STAGING_ID
 ```
 
 ### `royaltyport contracts status <project_id> <staging_id>`
@@ -160,13 +171,24 @@ royaltyport contracts download $PROJECT_ID $CONTRACT_ID --output ./downloads/con
 
 ### `royaltyport statements upload <project_id> [file_path]`
 
-Upload a statement PDF to a project.
+Upload a statement PDF to a project. PDF only, max 50 MB. The upload runs as a three-step
+signed-URL flow (there is no upload progress percentage); server-side processing continues
+after the command returns — track it with `statements status --watch`.
 
 ```bash
 royaltyport statements upload $PROJECT_ID statement.pdf
 
 # Upload from base64
 royaltyport statements upload $PROJECT_ID --base64 "$BASE64" --file-name statement.pdf
+```
+
+### `royaltyport statements complete <project_id> <staging_id>`
+
+Re-run upload finalization when an upload failed after the file bytes were already stored
+(the error message will point here). Does not re-upload the file.
+
+```bash
+royaltyport statements complete $PROJECT_ID $STAGING_ID
 ```
 
 ### `royaltyport statements status <project_id> <staging_id>`

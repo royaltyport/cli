@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { get, uploadJson, PROJECT_ID } from './setup.js';
-import type { StatementUploadResult, StatementProcesses } from '../../src/types/index.js';
+import { get, upload, PROJECT_ID } from './setup.js';
+import type { StatementProcesses } from '../../src/types/index.js';
 
 describe('Statements (integration)', () => {
   it('lists statements', async () => {
@@ -15,23 +15,20 @@ describe('Statements (integration)', () => {
   describe('upload -> processes', () => {
     let uploadedStagingId: number;
 
-    it('uploads a statement via JSON', async () => {
+    it('uploads a statement via the signed-URL flow', async () => {
+      // The server validates real bytes at complete — content must start with %PDF-
       const testContent = Buffer.from('%PDF-1.4 CLI integration test statement').toString('base64');
 
-      const result = await uploadJson(
-        `/v1/statements?projectId=${PROJECT_ID}`,
-        {
-          file: testContent,
-          fileName: 'cli-test-statement.pdf',
-          fileType: 'application/pdf',
-        },
-      );
+      const result = await upload('statements', {
+        base64: testContent,
+        fileName: 'cli-test-statement.pdf',
+      });
 
-      const statement = result.data as StatementUploadResult;
-      expect(statement).toHaveProperty('staging_id');
-      expect(typeof statement.staging_id).toBe('number');
+      expect(typeof result.staging_id).toBe('number');
+      expect(result.status).toBe('uploaded');
+      expect(typeof result.file_path).toBe('string');
 
-      uploadedStagingId = statement.staging_id;
+      uploadedStagingId = result.staging_id;
     });
 
     it('gets statement processes', async () => {
