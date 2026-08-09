@@ -113,6 +113,16 @@ royaltyport project exec $PROJECT_ID "cat contracts/contract_123/extracted/royal
 
 stdout and stderr are written to their respective streams, and the process exits with the last non-zero exit code (or 0 if all succeed) — making it suitable for scripting and AI agent tool use.
 
+### `royaltyport knowledge search <project_id> <query>`
+
+Search governed organization knowledge that is organization-wide or applicable to a project.
+
+```bash
+royaltyport knowledge search $PROJECT_ID "distribution approval policy" --limit 5
+```
+
+Results include matching graph nodes, claim and relationship counts, and the latest indexing timestamp.
+
 ### `royaltyport contracts upload <project_id> [file_path]`
 
 Upload a contract PDF to a project. PDF only, max 50 MB. The upload runs as a three-step
@@ -149,6 +159,7 @@ royaltyport contracts status $PROJECT_ID $STAGING_ID
 
 # Watch until complete
 royaltyport contracts status $PROJECT_ID $STAGING_ID --watch
+royaltyport contracts status $PROJECT_ID $STAGING_ID --watch --timeout 900
 ```
 
 ### `royaltyport contracts list <project_id>`
@@ -198,6 +209,7 @@ Check processing status for a statement.
 ```bash
 royaltyport statements status $PROJECT_ID $STAGING_ID
 royaltyport statements status $PROJECT_ID $STAGING_ID --watch
+royaltyport statements status $PROJECT_ID $STAGING_ID --watch --timeout 900
 ```
 
 ### `royaltyport statements list <project_id>`

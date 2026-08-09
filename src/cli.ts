@@ -6,6 +6,7 @@ import { registerProjectsCommand } from './commands/projects.js';
 import { registerProjectCommand } from './commands/project.js';
 import { registerContractsCommand } from './commands/contracts.js';
 import { registerStatementsCommand } from './commands/statements.js';
+import { registerKnowledgeCommand } from './commands/knowledge.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8')) as { version: string };
 
@@ -22,5 +23,6 @@ registerProjectsCommand(program);
 registerProjectCommand(program);
 registerContractsCommand(program);
 registerStatementsCommand(program);
+registerKnowledgeCommand(program);
 
 export { program };

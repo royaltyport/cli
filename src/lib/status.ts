@@ -2,6 +2,26 @@ import { dim, brand, warning, error as errorColor } from './theme.js';
 import { printTable, printStatusLine, printInfo } from './output.js';
 import type { ContractProcesses, StatementProcesses } from '../types/index.js';
 
+export type ProcessTerminalState = 'completed' | 'failed' | null;
+
+export function getProcessTerminalState(
+  data: ContractProcesses | StatementProcesses,
+  resourceType: 'contract' | 'statement',
+): ProcessTerminalState {
+  if (data.staging_processes.stage === 'failed') return 'failed';
+
+  if (resourceType === 'contract') {
+    const contract = data as ContractProcesses;
+    if (contract.extraction_processes?.stage === 'failed') return 'failed';
+    if (contract.extraction_processes?.extractions.some(item => item.status === 'failed')) return 'failed';
+    return contract.staging_done && contract.extraction_done ? 'completed' : null;
+  }
+
+  const statement = data as StatementProcesses;
+  if (statement.processing_processes?.status === 'failed') return 'failed';
+  return statement.staging_done && statement.processing_done ? 'completed' : null;
+}
+
 export const STATUS_COLORS: Record<string, (text: string) => string> = {
   completed: brand,
   pending: dim,

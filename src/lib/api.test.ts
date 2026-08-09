@@ -135,12 +135,21 @@ describe('api', () => {
       expect(fetchSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('does not retry network errors when retryNetworkErrors is false', async () => {
+    it('does not retry network errors when retry is false', async () => {
       fetchSpy.mockRejectedValue(new TypeError('fetch failed'));
 
       await expect(
-        apiPostRetry('/v1/statements/uploads/complete', { stagingId: 1 }, { retryNetworkErrors: false }, 'token'),
+        apiPostRetry('/v1/statements/uploads/complete', { stagingId: 1 }, { retry: false }, 'token'),
       ).rejects.toThrow('fetch failed');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry retryable responses when retry is false', async () => {
+      fetchSpy.mockResolvedValue(mockResponse({ error: { message: 'server failed' } }, { status: 500 }));
+
+      await expect(
+        apiPostRetry('/v1/statements/uploads', {}, { retry: false }, 'token'),
+      ).rejects.toThrow('server failed');
       expect(fetchSpy).toHaveBeenCalledTimes(1);
     });
   });

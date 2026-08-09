@@ -155,9 +155,9 @@ export async function apiDelete(path: string, token?: string): Promise<Record<st
 }
 
 export interface PostRetryOptions {
-  // When false, a network failure after the request is sent is NOT retried:
-  // the server may have already received and acted on it (used for uploads/complete).
-  retryNetworkErrors?: boolean;
+  // When false, no response or network failures are retried. Use for requests
+  // that create state without an idempotency key.
+  retry?: boolean;
 }
 
 export async function apiPostRetry(
@@ -166,7 +166,7 @@ export async function apiPostRetry(
   options: PostRetryOptions = {},
   token?: string,
 ): Promise<Record<string, unknown>> {
-  const { retryNetworkErrors = true } = options;
+  const { retry = true } = options;
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
 
@@ -181,7 +181,7 @@ export async function apiPostRetry(
       });
     } catch (err) {
       lastError = err;
-      if (retryNetworkErrors && attempt < MAX_RETRIES) {
+      if (retry && attempt < MAX_RETRIES) {
         await sleep(retryDelay(attempt));
         continue;
       }
@@ -191,7 +191,7 @@ export async function apiPostRetry(
     if (res.ok) {
       return parseResponse(res);
     }
-    if (attempt < MAX_RETRIES && (res.status === 429 || res.status >= 500)) {
+    if (retry && attempt < MAX_RETRIES && (res.status === 429 || res.status >= 500)) {
       await sleep(retryDelay(attempt, res.headers));
       continue;
     }
@@ -282,7 +282,7 @@ export async function apiUploadFlow(
       ...(fileExtension && { fileExtension }),
       ...(options.extractions && { extractions: options.extractions }),
     },
-    {},
+    { retry: false },
     options.token,
   );
   const { staging_id, upload_url, file_path } = mint.data as unknown as UploadUrlResult;
@@ -306,7 +306,7 @@ export async function apiUploadFlow(
     await apiPostRetry(
       `/v1/${resource}/uploads/complete?projectId=${projectId}`,
       { stagingId: staging_id },
-      { retryNetworkErrors: false },
+      { retry: false },
       options.token,
     );
   } catch (err) {
@@ -330,7 +330,7 @@ export async function apiUploadComplete(
   return apiPostRetry(
     `/v1/${resource}/uploads/complete?projectId=${projectId}`,
     { stagingId },
-    { retryNetworkErrors: false },
+    { retry: false },
     token,
   );
 }

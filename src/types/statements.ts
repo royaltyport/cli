@@ -12,7 +12,11 @@ export interface StatementProcesses {
   staging_done: boolean;
   processing_done: boolean;
   staging_processes: ProcessInfo;
-  processing_processes: Record<string, unknown> | null;
+  processing_processes: {
+    status: string;
+    stage: number;
+    remarks: Record<string, unknown>;
+  } | null;
 }
 
 export interface StatementsUploadOptions {
@@ -22,6 +26,7 @@ export interface StatementsUploadOptions {
 
 export interface StatementsStatusOptions {
   watch?: boolean;
+  timeout?: string;
 }
 
 export interface StatementsListOptions {
