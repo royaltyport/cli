@@ -27,4 +27,12 @@ describe('Search (integration)', () => {
     const data = response.data as Record<string, unknown>;
     expect(data).toHaveProperty('recordings');
   });
+
+  it('searches governed project knowledge', async () => {
+    const response = await get(`/v1/projects/${PROJECT_ID}/knowledge/search?q=policy&limit=5`);
+    const data = response.data as Record<string, unknown>;
+
+    expect(Array.isArray(data.results)).toBe(true);
+    expect(data).toHaveProperty('freshness');
+  });
 });

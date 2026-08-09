@@ -32,6 +32,7 @@ export interface ContractsUploadOptions {
 
 export interface ContractsStatusOptions {
   watch?: boolean;
+  timeout?: string;
 }
 
 export interface ContractsListOptions {

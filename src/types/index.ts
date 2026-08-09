@@ -28,3 +28,4 @@ export type {
   StatementsDownloadOptions,
 } from './statements.js';
 export type { LoginOptions } from './login.js';
+export type { KnowledgeSearchOptions, KnowledgeSearchNode, KnowledgeSearchResult } from './knowledge.js';

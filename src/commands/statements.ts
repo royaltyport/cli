@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 import ora from 'ora';
 import { apiGet, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
 import { printTable, printError, printSuccess, printInfo } from '../lib/output.js';
-import { printProcessStatus } from '../lib/status.js';
+import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
 import { spinnerColor } from '../lib/theme.js';
 import type {
   StatementsUploadOptions,
@@ -114,6 +114,7 @@ export function registerStatementsCommand(program: Command): void {
     .argument('<project_id>', 'Project ID (UUID)')
     .argument('<staging_id>', 'Staging ID (returned from upload)')
     .option('-w, --watch', 'Poll for updates until all processing completes')
+    .option('--timeout <seconds>', 'Maximum watch duration in seconds', '900')
     .action(async (projectId: string, stagingId: string, options: StatementsStatusOptions) => {
       try {
         await requireAuth();
@@ -126,24 +127,34 @@ export function registerStatementsCommand(program: Command): void {
         };
 
         if (options.watch) {
+          const timeoutMs = Number(options.timeout) * 1000;
+          if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('--timeout must be a positive number');
+          const deadline = Date.now() + timeoutMs;
           const spinner = ora({ text: 'Waiting for processing...', color: spinnerColor }).start();
 
           let data: StatementProcesses;
-          while (true) {
-            data = await fetchStatus();
+          let terminalState;
+          try {
+            while (true) {
+              data = await fetchStatus();
 
-            if (!data.staging_done) {
-              spinner.text = `Staging: ${data.staging_processes.stage}...`;
-            } else if (!data.processing_done) {
-              spinner.text = 'Processing statement...';
+              if (!data.staging_done) {
+                spinner.text = `Staging: ${data.staging_processes.stage}...`;
+              } else if (!data.processing_done) {
+                spinner.text = 'Processing statement...';
+              }
+
+              terminalState = getProcessTerminalState(data, 'statement');
+              if (terminalState) break;
+              if (Date.now() >= deadline) throw new Error(`Timed out after ${options.timeout} seconds waiting for statement processing`);
+              await new Promise(r => setTimeout(r, 3000));
             }
-
-            if (data.staging_done && data.processing_done) break;
-            await new Promise(r => setTimeout(r, 3000));
+          } finally {
+            spinner.stop();
           }
 
-          spinner.stop();
           printProcessStatus(data, { resourceType: 'statement' });
+          if (terminalState === 'failed') throw new Error('Statement processing failed');
         } else {
           const spinner = ora({ text: 'Fetching status...', color: spinnerColor }).start();
           const data = await fetchStatus();
