@@ -4,17 +4,27 @@ export interface Statement {
   id: number;
   file_name: string;
   created_at: string;
+  extraction_stage: StatementExtractionStage;
 }
+
+export type StatementExtractionStage =
+  | 'queued'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'paused'
+  | 'timed_out'
+  | 'skipped';
 
 export interface StatementProcesses {
   staging_id: number;
   statement_id: number | null;
   staging_done: boolean;
-  processing_done: boolean;
+  extraction_done: boolean;
   staging_processes: ProcessInfo;
-  processing_processes: {
-    status: string;
-    stage: number;
+  extraction_processes: {
+    stage: StatementExtractionStage;
+    step: number;
     remarks: Record<string, unknown>;
   } | null;
 }

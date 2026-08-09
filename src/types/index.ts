@@ -21,6 +21,7 @@ export type {
 } from './contracts.js';
 export type {
   Statement,
+  StatementExtractionStage,
   StatementProcesses,
   StatementsUploadOptions,
   StatementsStatusOptions,

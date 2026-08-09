@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 import ora from 'ora';
 import { apiGet, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
 import { printTable, printError, printSuccess, printInfo } from '../lib/output.js';
-import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
+import { formatStatus, getProcessTerminalState, printProcessStatus } from '../lib/status.js';
 import { spinnerColor } from '../lib/theme.js';
 import type {
   StatementsUploadOptions,
@@ -19,7 +19,7 @@ import type {
 export function registerStatementsCommand(program: Command): void {
   const statements = program
     .command('statements')
-    .description('Manage statements: upload, list, download, and track processing status');
+    .description('Manage statements: upload, list, download, and track extraction status');
 
   statements
     .command('upload')
@@ -110,10 +110,10 @@ export function registerStatementsCommand(program: Command): void {
 
   statements
     .command('status')
-    .description('Check processing status for a statement')
+    .description('Check extraction status for a statement')
     .argument('<project_id>', 'Project ID (UUID)')
     .argument('<staging_id>', 'Staging ID (returned from upload)')
-    .option('-w, --watch', 'Poll for updates until all processing completes')
+    .option('-w, --watch', 'Poll for updates until extraction reaches a terminal stage')
     .option('--timeout <seconds>', 'Maximum watch duration in seconds', '900')
     .action(async (projectId: string, stagingId: string, options: StatementsStatusOptions) => {
       try {
@@ -130,7 +130,7 @@ export function registerStatementsCommand(program: Command): void {
           const timeoutMs = Number(options.timeout) * 1000;
           if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('--timeout must be a positive number');
           const deadline = Date.now() + timeoutMs;
-          const spinner = ora({ text: 'Waiting for processing...', color: spinnerColor }).start();
+          const spinner = ora({ text: 'Waiting for extraction...', color: spinnerColor }).start();
 
           let data: StatementProcesses;
           let terminalState;
@@ -140,13 +140,13 @@ export function registerStatementsCommand(program: Command): void {
 
               if (!data.staging_done) {
                 spinner.text = `Staging: ${data.staging_processes.stage}...`;
-              } else if (!data.processing_done) {
-                spinner.text = 'Processing statement...';
+              } else if (!data.extraction_done) {
+                spinner.text = `Extraction: ${data.extraction_processes?.stage ?? 'queued'}...`;
               }
 
               terminalState = getProcessTerminalState(data, 'statement');
               if (terminalState) break;
-              if (Date.now() >= deadline) throw new Error(`Timed out after ${options.timeout} seconds waiting for statement processing`);
+              if (Date.now() >= deadline) throw new Error(`Timed out after ${options.timeout} seconds waiting for statement extraction`);
               await new Promise(r => setTimeout(r, 3000));
             }
           } finally {
@@ -154,7 +154,7 @@ export function registerStatementsCommand(program: Command): void {
           }
 
           printProcessStatus(data, { resourceType: 'statement' });
-          if (terminalState === 'failed') throw new Error('Statement processing failed');
+          if (terminalState === 'failed') throw new Error('Statement extraction failed');
         } else {
           const spinner = ora({ text: 'Fetching status...', color: spinnerColor }).start();
           const data = await fetchStatus();
@@ -192,10 +192,11 @@ export function registerStatementsCommand(program: Command): void {
         const rows = items.map(s => [
           s.id,
           s.file_name || '-',
+          formatStatus(s.extraction_stage),
           s.created_at ? new Date(s.created_at).toLocaleDateString() : '-',
         ]);
 
-        printTable(['ID', 'File Name', 'Created'], rows);
+        printTable(['ID', 'File Name', 'Extraction', 'Created'], rows);
         console.log();
         printInfo(`Page ${page} of ${Math.ceil(total_count / per_page)} (${total_count} total)`);
       } catch (err) {

@@ -10,9 +10,9 @@ describe('getProcessTerminalState', () => {
       staging_id: 1,
       statement_id: null,
       staging_done: true,
-      processing_done: false,
+      extraction_done: false,
       staging_processes: processInfo('failed'),
-      processing_processes: null,
+      extraction_processes: null,
     };
     expect(getProcessTerminalState(data, 'statement')).toBe('failed');
   });
@@ -29,16 +29,40 @@ describe('getProcessTerminalState', () => {
     expect(getProcessTerminalState(data, 'contract')).toBe('failed');
   });
 
-  it('treats statement processing failure as terminal', () => {
+  it('treats statement extraction failure as terminal', () => {
     const data: StatementProcesses = {
       staging_id: 1,
       statement_id: 2,
       staging_done: true,
-      processing_done: true,
+      extraction_done: true,
       staging_processes: processInfo('completed'),
-      processing_processes: { status: 'failed', stage: 2, remarks: {} },
+      extraction_processes: { stage: 'failed', step: 2, remarks: {} },
     };
     expect(getProcessTerminalState(data, 'statement')).toBe('failed');
+  });
+
+  it('treats a timed-out statement extraction as failed', () => {
+    const data: StatementProcesses = {
+      staging_id: 1,
+      statement_id: 2,
+      staging_done: true,
+      extraction_done: true,
+      staging_processes: processInfo('completed'),
+      extraction_processes: { stage: 'timed_out', step: 2, remarks: {} },
+    };
+    expect(getProcessTerminalState(data, 'statement')).toBe('failed');
+  });
+
+  it('treats a skipped statement extraction as completed', () => {
+    const data: StatementProcesses = {
+      staging_id: 1,
+      statement_id: 2,
+      staging_done: true,
+      extraction_done: true,
+      staging_processes: processInfo('completed'),
+      extraction_processes: { stage: 'skipped', step: 0, remarks: {} },
+    };
+    expect(getProcessTerminalState(data, 'statement')).toBe('completed');
   });
 
   it('returns completed only after both stages finish', () => {

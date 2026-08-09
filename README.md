@@ -204,7 +204,7 @@ royaltyport statements complete $PROJECT_ID $STAGING_ID
 
 ### `royaltyport statements status <project_id> <staging_id>`
 
-Check processing status for a statement.
+Check extraction status for a statement.
 
 ```bash
 royaltyport statements status $PROJECT_ID $STAGING_ID

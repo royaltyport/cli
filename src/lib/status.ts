@@ -18,17 +18,23 @@ export function getProcessTerminalState(
   }
 
   const statement = data as StatementProcesses;
-  if (statement.processing_processes?.status === 'failed') return 'failed';
-  return statement.staging_done && statement.processing_done ? 'completed' : null;
+  if (
+    statement.extraction_processes?.stage === 'failed'
+    || statement.extraction_processes?.stage === 'timed_out'
+  ) return 'failed';
+  return statement.staging_done && statement.extraction_done ? 'completed' : null;
 }
 
 export const STATUS_COLORS: Record<string, (text: string) => string> = {
   completed: brand,
   pending: dim,
   failed: errorColor,
+  timed_out: errorColor,
   retry: warning,
   processing: warning,
+  paused: warning,
   queued: dim,
+  skipped: dim,
 };
 
 export function formatStatus(status: string): string {
@@ -55,7 +61,7 @@ export function printProcessStatus(
   if (isContract) {
     statusEntries.push(['Extraction Done', (data as ContractProcesses).extraction_done ? brand('yes') : dim('no')]);
   } else {
-    statusEntries.push(['Processing Done', (data as StatementProcesses).processing_done ? brand('yes') : dim('no')]);
+    statusEntries.push(['Extraction Done', (data as StatementProcesses).extraction_done ? brand('yes') : dim('no')]);
   }
 
   console.log();
@@ -92,6 +98,16 @@ export function printProcessStatus(
         printInfo('No extraction steps recorded yet.');
       }
     } else if (contractData.staging_done && contractData.staging_processes.stage === 'completed') {
+      console.log();
+      printInfo('Waiting for extraction to start...');
+    }
+  } else {
+    const statementData = data as StatementProcesses;
+    if (statementData.extraction_processes) {
+      console.log();
+      console.log(`Extraction stage: ${formatStatus(statementData.extraction_processes.stage)}`);
+      console.log(dim(`Extraction step: ${statementData.extraction_processes.step}`));
+    } else if (statementData.staging_done && statementData.staging_processes.stage === 'completed') {
       console.log();
       printInfo('Waiting for extraction to start...');
     }
