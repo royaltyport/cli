@@ -9,7 +9,7 @@ export type {
   DownloadResult,
   ProcessInfo,
 } from './api.js';
-export type { Project, ProjectExecResult, ProjectInfoResult, ProjectExecOptions } from './projects.js';
+export type { Project, ProjectsCreateOptions, ProjectExecResult, ProjectInfoResult, ProjectExecOptions } from './projects.js';
 export type {
   Contract,
   ContractProcesses,
@@ -18,6 +18,7 @@ export type {
   ContractsStatusOptions,
   ContractsListOptions,
   ContractsDownloadOptions,
+  ResourceScore,
 } from './contracts.js';
 export type {
   Statement,

@@ -1,14 +1,14 @@
 import type { Command } from 'commander';
 import ora from 'ora';
-import { apiGet, requireAuth } from '../lib/api.js';
-import { printTable, printError, printInfo } from '../lib/output.js';
+import { apiGet, apiPost, requireAuth } from '../lib/api.js';
+import { printTable, printError, printInfo, printSuccess } from '../lib/output.js';
 import { spinnerColor } from '../lib/theme.js';
-import type { Project } from '../types/index.js';
+import type { Project, ProjectsCreateOptions } from '../types/index.js';
 
 export function registerProjectsCommand(program: Command): void {
-  program
+  const projectsCommand = program
     .command('projects')
-    .description('List available projects')
+    .description('List and create projects')
     .action(async () => {
       try {
         await requireAuth();
@@ -30,6 +30,30 @@ export function registerProjectsCommand(program: Command): void {
         ]);
 
         printTable(['ID', 'Name', 'Created'], rows);
+      } catch (err) {
+        printError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  projectsCommand
+    .command('create')
+    .description('Create a project (organization admin required)')
+    .argument('<name>', 'Project name')
+    .option('--entity-name <name>', 'Legal entity name')
+    .action(async (name: string, options: ProjectsCreateOptions) => {
+      try {
+        await requireAuth();
+        const spinner = ora({ text: 'Creating project...', color: spinnerColor }).start();
+        let response: Record<string, unknown>;
+        try {
+          response = await apiPost('/v1/projects', { name, entityName: options.entityName });
+        } finally {
+          spinner.stop();
+        }
+        const project = response.data as Project;
+        printSuccess('Project created successfully.');
+        printTable(['ID', 'Name'], [[project.id, project.name]]);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
         process.exit(1);

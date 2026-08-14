@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
-import { apiGet, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
+import { apiGet, apiPost, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
 import { printTable, printError, printSuccess, printInfo } from '../lib/output.js';
 import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
 import { spinnerColor } from '../lib/theme.js';
@@ -140,7 +140,7 @@ export function registerStatementsCommand(program: Command): void {
 
               if (!data.staging_done) {
                 spinner.text = `Staging: ${data.staging_processes.stage}...`;
-              } else if (!data.processing_done) {
+              } else if (!data.extraction_done) {
                 spinner.text = 'Processing statement...';
               }
 
@@ -153,13 +153,13 @@ export function registerStatementsCommand(program: Command): void {
             spinner.stop();
           }
 
-          printProcessStatus(data, { resourceType: 'statement' });
+          printProcessStatus(data, { resourceType: 'statement', projectId });
           if (terminalState === 'failed') throw new Error('Statement processing failed');
         } else {
           const spinner = ora({ text: 'Fetching status...', color: spinnerColor }).start();
           const data = await fetchStatus();
           spinner.stop();
-          printProcessStatus(data, { resourceType: 'statement' });
+          printProcessStatus(data, { resourceType: 'statement', projectId });
         }
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
@@ -173,13 +173,14 @@ export function registerStatementsCommand(program: Command): void {
     .argument('<project_id>', 'Project ID (UUID)')
     .option('-p, --page <page>', 'Page number', '1')
     .option('-n, --per-page <perPage>', 'Results per page', '20')
+    .option('--score', 'Include score summary and failed/warned rules')
     .action(async (projectId: string, options: StatementsListOptions) => {
       try {
         await requireAuth();
 
         const spinner = ora({ text: 'Fetching statements...', color: spinnerColor }).start();
         const response = await apiGet(
-          `/v1/statements?projectId=${projectId}&page=${options.page}&perPage=${options.perPage}`,
+          `/v1/statements?projectId=${projectId}&page=${options.page}&perPage=${options.perPage}${options.score ? '&score=true' : ''}`,
         );
         spinner.stop();
 
@@ -193,11 +194,36 @@ export function registerStatementsCommand(program: Command): void {
           s.id,
           s.file_name || '-',
           s.created_at ? new Date(s.created_at).toLocaleDateString() : '-',
+          options.score ? (s.score?.summary?.score ?? '-') : undefined,
         ]);
 
-        printTable(['ID', 'File Name', 'Created'], rows);
+        printTable(options.score ? ['ID', 'File Name', 'Created', 'Score'] : ['ID', 'File Name', 'Created'], rows.map(row => row.filter(value => value !== undefined)));
         console.log();
         printInfo(`Page ${page} of ${Math.ceil(total_count / per_page)} (${total_count} total)`);
+      } catch (err) {
+        printError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  statements
+    .command('retry')
+    .description('Retry a statement upload paused at the project document limit')
+    .argument('<project_id>', 'Project ID (UUID)')
+    .argument('<staging_id>', 'Staging ID')
+    .action(async (projectId: string, stagingId: string) => {
+      try {
+        await requireAuth();
+        const spinner = ora({ text: 'Retrying statement staging upload...', color: spinnerColor }).start();
+        let response: Record<string, unknown>;
+        try {
+          response = await apiPost(`/v1/statements/staging/${stagingId}/retry?projectId=${projectId}`, {});
+        } finally {
+          spinner.stop();
+        }
+        const result = response.data as { status: string; current_count?: number; limit?: number };
+        printSuccess(`Statement staging upload is ${result.status}.`);
+        if (result.status === 'paused') printInfo(`Capacity is still full (${result.current_count ?? '?'}/${result.limit ?? '?'}).`);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
         process.exit(1);

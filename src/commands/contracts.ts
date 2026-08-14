@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
-import { apiGet, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
+import { apiGet, apiPost, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
 import { printTable, printError, printSuccess, printInfo } from '../lib/output.js';
 import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
 import { spinnerColor } from '../lib/theme.js';
@@ -160,13 +160,13 @@ export function registerContractsCommand(program: Command): void {
             spinner.stop();
           }
 
-          printProcessStatus(data, { resourceType: 'contract' });
+          printProcessStatus(data, { resourceType: 'contract', projectId });
           if (terminalState === 'failed') throw new Error('Contract processing failed');
         } else {
           const spinner = ora({ text: 'Fetching status...', color: spinnerColor }).start();
           const data = await fetchStatus();
           spinner.stop();
-          printProcessStatus(data, { resourceType: 'contract' });
+          printProcessStatus(data, { resourceType: 'contract', projectId });
         }
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
@@ -180,13 +180,14 @@ export function registerContractsCommand(program: Command): void {
     .argument('<project_id>', 'Project ID (UUID)')
     .option('-p, --page <page>', 'Page number', '1')
     .option('-n, --per-page <perPage>', 'Results per page', '20')
+    .option('--score', 'Include score summary and failed/warned rules')
     .action(async (projectId: string, options: ContractsListOptions) => {
       try {
         await requireAuth();
 
         const spinner = ora({ text: 'Fetching contracts...', color: spinnerColor }).start();
         const response = await apiGet(
-          `/v1/contracts?projectId=${projectId}&page=${options.page}&perPage=${options.perPage}`,
+          `/v1/contracts?projectId=${projectId}&page=${options.page}&perPage=${options.perPage}${options.score ? '&score=true' : ''}`,
         );
         spinner.stop();
 
@@ -200,11 +201,36 @@ export function registerContractsCommand(program: Command): void {
           c.id,
           c.file_name || '-',
           c.created_at ? new Date(c.created_at).toLocaleDateString() : '-',
+          options.score ? (c.score?.summary?.score ?? '-') : undefined,
         ]);
 
-        printTable(['ID', 'File Name', 'Created'], rows);
+        printTable(options.score ? ['ID', 'File Name', 'Created', 'Score'] : ['ID', 'File Name', 'Created'], rows.map(row => row.filter(value => value !== undefined)));
         console.log();
         printInfo(`Page ${page} of ${Math.ceil(total_count / per_page)} (${total_count} total)`);
+      } catch (err) {
+        printError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  contracts
+    .command('retry')
+    .description('Retry a contract upload paused at the project document limit')
+    .argument('<project_id>', 'Project ID (UUID)')
+    .argument('<staging_id>', 'Staging ID')
+    .action(async (projectId: string, stagingId: string) => {
+      try {
+        await requireAuth();
+        const spinner = ora({ text: 'Retrying contract staging upload...', color: spinnerColor }).start();
+        let response: Record<string, unknown>;
+        try {
+          response = await apiPost(`/v1/contracts/staging/${stagingId}/retry?projectId=${projectId}`, {});
+        } finally {
+          spinner.stop();
+        }
+        const result = response.data as { status: string; current_count?: number; limit?: number };
+        printSuccess(`Contract staging upload is ${result.status}.`);
+        if (result.status === 'paused') printInfo(`Capacity is still full (${result.current_count ?? '?'}/${result.limit ?? '?'}).`);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
         process.exit(1);

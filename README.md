@@ -78,6 +78,14 @@ List all accessible projects.
 royaltyport projects
 ```
 
+### `royaltyport projects create <name>`
+
+Create a project as an organization admin.
+
+```bash
+royaltyport projects create "New Catalog" --entity-name "Label BV"
+```
+
 ```
 ID                                     Name                Created
 ─────────────────────────────────────  ──────────────────  ──────────
@@ -169,6 +177,16 @@ List contracts in a project.
 ```bash
 royaltyport contracts list $PROJECT_ID
 royaltyport contracts list $PROJECT_ID --page 2 --per-page 50
+royaltyport contracts list $PROJECT_ID --score
+```
+
+### Contract staging recovery
+
+`status --watch` stops when an upload is paused and prints the applicable next
+command. Capacity pauses can be retried.
+
+```bash
+royaltyport contracts retry $PROJECT_ID $STAGING_ID
 ```
 
 ### `royaltyport contracts download <project_id> <contract_id>`
@@ -219,6 +237,13 @@ List statements in a project.
 ```bash
 royaltyport statements list $PROJECT_ID
 royaltyport statements list $PROJECT_ID --page 2 --per-page 50
+royaltyport statements list $PROJECT_ID --score
+```
+
+Retry a statement paused at the project document limit:
+
+```bash
+royaltyport statements retry $PROJECT_ID $STAGING_ID
 ```
 
 ### `royaltyport statements download <project_id> <statement_id>`

@@ -4,6 +4,12 @@ export interface Contract {
   id: number;
   file_name: string;
   created_at: string;
+  score?: ResourceScore;
+}
+
+export interface ResourceScore {
+  summary: { score?: number; meanScore?: number; failed?: number; warned?: number } | null;
+  triggered_rules: Array<{ rule_id: string; status: 'fail' | 'warn'; severity: string; message: string | null }>;
 }
 
 export interface ContractProcesses {
@@ -11,6 +17,10 @@ export interface ContractProcesses {
   contract_id: number | null;
   staging_done: boolean;
   extraction_done: boolean;
+  staging_terminal: boolean;
+  requires_action: boolean;
+  available_actions: Array<'retry'>;
+  pause_reason: string | null;
   staging_processes: ProcessInfo;
   extraction_processes: {
     stage: string;
@@ -38,6 +48,7 @@ export interface ContractsStatusOptions {
 export interface ContractsListOptions {
   page: string;
   perPage: string;
+  score?: boolean;
 }
 
 export interface ContractsDownloadOptions {

@@ -4,6 +4,10 @@ export interface Project {
   created_at: string;
 }
 
+export interface ProjectsCreateOptions {
+  entityName?: string;
+}
+
 export interface ProjectExecResult {
   command: string;
   stdout?: string;
