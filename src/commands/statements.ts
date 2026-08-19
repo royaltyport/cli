@@ -4,6 +4,7 @@ import ora from 'ora';
 import { apiGet, apiPost, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
 import { printTable, printError, printSuccess, printInfo } from '../lib/output.js';
 import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
+import { buildStatementUploadContext } from '../lib/upload-context.js';
 import { spinnerColor } from '../lib/theme.js';
 import type {
   StatementsUploadOptions,
@@ -14,6 +15,7 @@ import type {
   PaginatedResult,
   Statement,
   DownloadResult,
+  UploadCompleteResult,
 } from '../types/index.js';
 
 export function registerStatementsCommand(program: Command): void {
@@ -28,6 +30,16 @@ export function registerStatementsCommand(program: Command): void {
     .argument('[file_path]', 'Path to the PDF file')
     .option('--base64 <string>', 'Base64-encoded file content (alternative to file_path)')
     .option('--file-name <name>', 'File name (required with --base64)')
+    .option('--folder <path>', 'Relative source folder path')
+    .option('--accounting-period <period>', 'Accounting period, for example 2026M1, 2026Q1, 2026H1, or 2026Y')
+    .option('--target-period <period>', 'Target booking period, for example 2026M1, 2026Q1, 2026H1, or 2026Y')
+    .option('--royalty-currency <code>', 'Three-letter royalty currency')
+    .option('--transaction-currency <code>', 'Three-letter transaction currency')
+    .option('--payee <name>', 'Royalty recipient or rights owner')
+    .option('--payor <name>', 'Statement issuer, distributor, or payer')
+    .option('--scenario-family <family>', 'Statement scenario family')
+    .option('--target-family <family>', 'Statement target family; required with --scenario-family')
+    .option('--tags <list>', 'Comma-separated tag names; missing project statement tags are created')
     .action(async (projectId: string, filePath: string | undefined, options: StatementsUploadOptions) => {
       try {
         await requireAuth();
@@ -51,6 +63,7 @@ export function registerStatementsCommand(program: Command): void {
           printError(`File not found: ${filePath}`);
           process.exit(1);
         }
+        const context = buildStatementUploadContext(options);
 
         const spinner = ora({ text: 'Uploading statement...', color: spinnerColor }).start();
 
@@ -60,7 +73,11 @@ export function registerStatementsCommand(program: Command): void {
             'statements',
             projectId,
             { filePath, base64: options.base64, fileName: options.fileName },
-            { onStep: (label) => { spinner.text = `${label}...`; } },
+            {
+              folderName: options.folder,
+              context,
+              onStep: (label) => { spinner.text = `${label}...`; },
+            },
           );
         } finally {
           spinner.stop();
@@ -74,6 +91,10 @@ export function registerStatementsCommand(program: Command): void {
             ['Staging ID', result.staging_id],
             ['Status', result.status],
             ['File Path', result.file_path],
+            ['Context Applied', result.context_applied ? 'yes' : 'no'],
+            ...(result.snapshot_hash ? [['Snapshot Hash', result.snapshot_hash]] : []),
+            ...(result.enqueued !== undefined ? [['Enqueued', result.enqueued]] : []),
+            ...(result.paused !== undefined ? [['Paused', result.paused]] : []),
           ],
         );
         console.log();
@@ -94,13 +115,21 @@ export function registerStatementsCommand(program: Command): void {
         await requireAuth();
 
         const spinner = ora({ text: 'Finalizing upload...', color: spinnerColor }).start();
+        let result: UploadCompleteResult;
         try {
-          await apiUploadComplete('statements', projectId, Number(stagingId));
+          result = await apiUploadComplete('statements', projectId, Number(stagingId));
         } finally {
           spinner.stop();
         }
 
         printSuccess('Statement upload finalized.');
+        printTable(['Field', 'Value'], [
+          ['Status', result.status],
+          ['Context Applied', result.context_applied ? 'yes' : 'no'],
+          ...(result.snapshot_hash ? [['Snapshot Hash', result.snapshot_hash]] : []),
+          ...(result.enqueued !== undefined ? [['Enqueued', result.enqueued]] : []),
+          ...(result.paused !== undefined ? [['Paused', result.paused]] : []),
+        ]);
         printInfo(`Track progress: royaltyport statements status ${projectId} ${stagingId}`);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));

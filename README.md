@@ -144,6 +144,12 @@ royaltyport contracts upload $PROJECT_ID contract.pdf
 # Upload with extractions
 royaltyport contracts upload $PROJECT_ID contract.pdf --extractions extract-royalties,extract-splits
 
+# Upload with approved folder and tag metadata. Existing exact tag names are
+# reused; missing project contract tags are created automatically.
+royaltyport contracts upload $PROJECT_ID contract.pdf \
+  --folder "Ocean Wave/Agreements" \
+  --tags "Priority,Artist agreement"
+
 # Upload from base64
 royaltyport contracts upload $PROJECT_ID --base64 "$BASE64" --file-name contract.pdf
 ```
@@ -207,9 +213,26 @@ after the command returns — track it with `statements status --watch`.
 ```bash
 royaltyport statements upload $PROJECT_ID statement.pdf
 
+# Upload with approved staging context and start processing immediately
+royaltyport statements upload $PROJECT_ID statement.pdf \
+  --folder "Ocean Wave/2026/Q1" \
+  --accounting-period 2026Q1 \
+  --target-period 2026Q1 \
+  --royalty-currency GBP \
+  --transaction-currency USD \
+  --payee "Ocean Wave Records Ltd" \
+  --payor "Absolute Marketing & Distribution Ltd" \
+  --scenario-family distribution.general \
+  --target-family recording_distribution \
+  --tags "Priority,Quarterly"
+
 # Upload from base64
 royaltyport statements upload $PROJECT_ID --base64 "$BASE64" --file-name statement.pdf
 ```
+
+Supplying a folder or any context flag seals the metadata and skips review; the
+upload result is `queued` or `paused` and prints the immutable snapshot and
+queue counts. Context-free uploads remain `uploaded`.
 
 ### `royaltyport statements complete <project_id> <staging_id>`
 

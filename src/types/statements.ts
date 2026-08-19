@@ -28,6 +28,16 @@ export interface StatementProcesses {
 export interface StatementsUploadOptions {
   base64?: string;
   fileName?: string;
+  folder?: string;
+  accountingPeriod?: string;
+  targetPeriod?: string;
+  royaltyCurrency?: string;
+  transactionCurrency?: string;
+  payee?: string;
+  payor?: string;
+  scenarioFamily?: string;
+  targetFamily?: string;
+  tags?: string;
 }
 
 export interface StatementsStatusOptions {

@@ -4,6 +4,7 @@ import ora from 'ora';
 import { apiGet, apiPost, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
 import { printTable, printError, printSuccess, printInfo } from '../lib/output.js';
 import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
+import { buildContractUploadContext } from '../lib/upload-context.js';
 import { spinnerColor } from '../lib/theme.js';
 import type {
   ContractsUploadOptions,
@@ -14,6 +15,7 @@ import type {
   PaginatedResult,
   Contract,
   DownloadResult,
+  UploadCompleteResult,
 } from '../types/index.js';
 
 export function registerContractsCommand(program: Command): void {
@@ -29,6 +31,8 @@ export function registerContractsCommand(program: Command): void {
     .option('--base64 <string>', 'Base64-encoded file content (alternative to file_path)')
     .option('--file-name <name>', 'File name (required with --base64)')
     .option('--extractions <list>', 'Comma-separated extraction IDs: extract-accounting-period, extract-assets, extract-balances, extract-commitments, extract-compensations, extract-control-areas, extract-costs, extract-creative-approvals, extract-dates, extract-royalties, extract-signatures, extract-splits, extract-targets')
+    .option('--folder <path>', 'Relative source folder path')
+    .option('--tags <list>', 'Comma-separated tag names; missing project contract tags are created')
     .action(async (projectId: string, filePath: string | undefined, options: ContractsUploadOptions) => {
       try {
         await requireAuth();
@@ -56,6 +60,7 @@ export function registerContractsCommand(program: Command): void {
         const extractions = options.extractions
           ? options.extractions.split(',').map(e => e.trim()).filter(Boolean)
           : undefined;
+        const context = buildContractUploadContext(options);
 
         const spinner = ora({ text: 'Uploading contract...', color: spinnerColor }).start();
 
@@ -65,7 +70,12 @@ export function registerContractsCommand(program: Command): void {
             'contracts',
             projectId,
             { filePath, base64: options.base64, fileName: options.fileName },
-            { extractions, onStep: (label) => { spinner.text = `${label}...`; } },
+            {
+              extractions,
+              folderName: options.folder,
+              context,
+              onStep: (label) => { spinner.text = `${label}...`; },
+            },
           );
         } finally {
           spinner.stop();
@@ -79,6 +89,10 @@ export function registerContractsCommand(program: Command): void {
             ['Staging ID', result.staging_id],
             ['Status', result.status],
             ['File Path', result.file_path],
+            ['Context Applied', result.context_applied ? 'yes' : 'no'],
+            ...(result.snapshot_hash ? [['Snapshot Hash', result.snapshot_hash]] : []),
+            ...(result.enqueued !== undefined ? [['Enqueued', result.enqueued]] : []),
+            ...(result.paused !== undefined ? [['Paused', result.paused]] : []),
           ],
         );
         console.log();
@@ -99,13 +113,21 @@ export function registerContractsCommand(program: Command): void {
         await requireAuth();
 
         const spinner = ora({ text: 'Finalizing upload...', color: spinnerColor }).start();
+        let result: UploadCompleteResult;
         try {
-          await apiUploadComplete('contracts', projectId, Number(stagingId));
+          result = await apiUploadComplete('contracts', projectId, Number(stagingId));
         } finally {
           spinner.stop();
         }
 
         printSuccess('Contract upload finalized.');
+        printTable(['Field', 'Value'], [
+          ['Status', result.status],
+          ['Context Applied', result.context_applied ? 'yes' : 'no'],
+          ...(result.snapshot_hash ? [['Snapshot Hash', result.snapshot_hash]] : []),
+          ...(result.enqueued !== undefined ? [['Enqueued', result.enqueued]] : []),
+          ...(result.paused !== undefined ? [['Paused', result.paused]] : []),
+        ]);
         printInfo(`Track progress: royaltyport contracts status ${projectId} ${stagingId}`);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));

@@ -201,7 +201,9 @@ describe('api', () => {
           { status: 201 },
         ))
         .mockResolvedValueOnce(new Response('{}', { status: 200 }))
-        .mockResolvedValueOnce(mockResponse({ data: { staging_id: 123, status: 'uploaded' } }));
+        .mockResolvedValueOnce(mockResponse({
+          data: { staging_id: 123, status: 'uploaded', context_applied: false },
+        }));
     }
 
     it('runs mint -> PUT -> complete in order with correct requests', async () => {
@@ -234,7 +236,12 @@ describe('api', () => {
       expect(completeUrl).toBe('https://api.example.com/v1/statements/uploads/complete?projectId=proj-1');
       expect(JSON.parse(completeInit.body as string)).toEqual({ stagingId: 123 });
 
-      expect(result).toEqual({ staging_id: 123, status: 'uploaded', file_path: 'proj/statements_staging/9' });
+      expect(result).toEqual({
+        staging_id: 123,
+        status: 'uploaded',
+        file_path: 'proj/statements_staging/9',
+        context_applied: false,
+      });
     });
 
     it('sends extractions as a real JSON array and reports steps', async () => {
@@ -251,6 +258,59 @@ describe('api', () => {
       const mintBody = JSON.parse((fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as string);
       expect(mintBody.extractions).toEqual(['extract-dates', 'extract-signatures']);
       expect(steps).toEqual(['Requesting upload URL', 'Uploading file', 'Finalizing upload']);
+    });
+
+    it('forwards folder and approved context and returns contextual completion fields', async () => {
+      fetchSpy
+        .mockResolvedValueOnce(mockResponse(
+          { data: { staging_id: 123, upload_url: SIGNED_URL, file_path: 'proj/statements_staging/9', context_attached: true } },
+          { status: 201 },
+        ))
+        .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+        .mockResolvedValueOnce(mockResponse({
+          data: {
+            staging_id: 123,
+            status: 'queued',
+            context_applied: true,
+            snapshot_hash: 'a'.repeat(64),
+            enqueued: 1,
+            paused: 0,
+          },
+        }));
+
+      const result = await apiUploadFlow(
+        'statements',
+        'proj-1',
+        { bytes: new TextEncoder().encode('%PDF-1.4'), fileName: 'statement.pdf' },
+        {
+          token: 'token',
+          folderName: 'Ocean Wave/2026/Q1',
+          context: {
+            accountingPeriod: { value: '2026Q1' },
+            currencyRoyalty: 'GBP',
+            tags: ['Priority', 'Quarterly'],
+          },
+        },
+      );
+
+      const mintBody = JSON.parse((fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as string);
+      expect(mintBody).toMatchObject({
+        folderName: 'Ocean Wave/2026/Q1',
+        context: {
+          accountingPeriod: { value: '2026Q1' },
+          currencyRoyalty: 'GBP',
+          tags: ['Priority', 'Quarterly'],
+        },
+      });
+      expect(result).toEqual({
+        staging_id: 123,
+        status: 'queued',
+        file_path: 'proj/statements_staging/9',
+        context_applied: true,
+        snapshot_hash: 'a'.repeat(64),
+        enqueued: 1,
+        paused: 0,
+      });
     });
 
     it('omits fileExtension for dot-less file names', async () => {

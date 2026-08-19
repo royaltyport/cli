@@ -1,7 +1,13 @@
 import { writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import type { UploadFlowInput, UploadFlowOptions, UploadFlowResult, UploadUrlResult } from '../types/index.js';
+import type {
+  UploadCompleteResult,
+  UploadFlowInput,
+  UploadFlowOptions,
+  UploadFlowResult,
+  UploadUrlResult,
+} from '../types/index.js';
 import {
   getToken,
   getApiUrl,
@@ -281,6 +287,8 @@ export async function apiUploadFlow(
       fileSize,
       ...(fileExtension && { fileExtension }),
       ...(options.extractions && { extractions: options.extractions }),
+      ...(options.folderName !== undefined && { folderName: options.folderName }),
+      ...(options.context !== undefined && { context: options.context }),
     },
     { retry: false },
     options.token,
@@ -302,8 +310,9 @@ export async function apiUploadFlow(
   }
 
   options.onStep?.('Finalizing upload');
+  let complete: Record<string, unknown>;
   try {
-    await apiPostRetry(
+    complete = await apiPostRetry(
       `/v1/${resource}/uploads/complete?projectId=${projectId}`,
       { stagingId: staging_id },
       { retry: false },
@@ -318,7 +327,8 @@ export async function apiUploadFlow(
     );
   }
 
-  return { staging_id, status: 'uploaded', file_path };
+  const completed = complete.data as UploadCompleteResult;
+  return { ...completed, staging_id, file_path };
 }
 
 export async function apiUploadComplete(
@@ -326,13 +336,14 @@ export async function apiUploadComplete(
   projectId: string,
   stagingId: number,
   token?: string,
-): Promise<Record<string, unknown>> {
-  return apiPostRetry(
+): Promise<UploadCompleteResult> {
+  const response = await apiPostRetry(
     `/v1/${resource}/uploads/complete?projectId=${projectId}`,
     { stagingId },
     { retry: false },
     token,
   );
+  return response.data as UploadCompleteResult;
 }
 
 export async function apiDownloadFile(signedUrl: string, destPath: string): Promise<string> {

@@ -38,6 +38,8 @@ export interface ContractsUploadOptions {
   base64?: string;
   fileName?: string;
   extractions?: string;
+  folder?: string;
+  tags?: string;
 }
 
 export interface ContractsStatusOptions {
