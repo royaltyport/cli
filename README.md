@@ -234,6 +234,10 @@ Supplying a folder or any context flag seals the metadata and skips review; the
 upload result is `queued` or `paused` and prints the immutable snapshot and
 queue counts. Context-free uploads remain `uploaded`.
 
+Periods are value-only and use `2026M1`–`2026M12`, `2026Q1`–`2026Q4`,
+`2026H1`/`2026H2`, or `2026Y`. Tags are names rather than IDs; matching tags
+are reused and missing tags are created automatically.
+
 ### `royaltyport statements complete <project_id> <staging_id>`
 
 Re-run upload finalization when an upload failed after the file bytes were already stored
