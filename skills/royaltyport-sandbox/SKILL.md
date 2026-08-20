@@ -113,17 +113,20 @@ royaltyport contracts download <project_id> <contract_id> --output ./downloads/c
 
 ### Upload a statement
 
-Uploads are PDF only, max 50 MB. There is no upload progress percentage; processing happens
-server-side after the command returns — poll it with `statements status --watch`. If an upload
-fails after the file bytes were stored, finalize it with
+Uploads may be extensionless or use `.csv`, `.tsv`, `.tab`, `.txt`, `.cat`, `.roy`, `.crd`,
+`.prt`, `.p01`, `.gdf`, `.021`, `.030`, `.303`, `.xlsx`, `.xltx`, `.xlsm`, `.xls`, `.xlsb`,
+`.ods`, `.xml`, `.gz`, `.pdf`, `.asc`, `.dat`, or `.cp9385146`, up to 50 MB. There is no
+upload progress percentage; processing happens server-side after the command returns — poll
+it with `statements status --watch`. If an upload fails after the file bytes were stored,
+finalize it with
 `royaltyport statements complete <project_id> <staging_id>` instead of re-uploading.
 
 ```bash
 # Upload from file
-royaltyport statements upload <project_id> statement.pdf
+royaltyport statements upload <project_id> statement.xlsx
 
 # Upload from base64
-royaltyport statements upload <project_id> --base64 "$BASE64" --file-name statement.pdf
+royaltyport statements upload <project_id> --base64 "$BASE64" --file-name statement.csv
 ```
 
 ### Check statement processing status
