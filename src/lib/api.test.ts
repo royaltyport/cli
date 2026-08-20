@@ -339,15 +339,50 @@ describe('api', () => {
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
-    it('rejects non-PDF extensions locally with zero network calls', async () => {
+    it.each([
+      ['data.csv', 'text/csv'],
+      ['data.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+    ])('uploads registered statement format %s with inferred MIME metadata', async (fileName, expectedMime) => {
+      mockFlowResponses();
+
+      await apiUploadFlow(
+        'statements',
+        'proj-1',
+        { bytes: new TextEncoder().encode('statement bytes'), fileName },
+        { token: 'token' },
+      );
+
+      const mintBody = JSON.parse((fetchSpy.mock.calls[0] as [string, RequestInit])[1].body as string);
+      expect(mintBody).toMatchObject({
+        fileName,
+        fileType: expectedMime,
+        fileExtension: fileName.split('.').pop(),
+      });
+      const putHeaders = (fetchSpy.mock.calls[1] as [string, RequestInit])[1].headers as Record<string, string>;
+      expect(putHeaders['content-type']).toBe(expectedMime);
+    });
+
+    it('rejects unsupported statement extensions locally with zero network calls', async () => {
       await expect(
         apiUploadFlow(
           'statements',
           'proj-1',
-          { bytes: new TextEncoder().encode('a,b,c'), fileName: 'data.csv' },
+          { bytes: new TextEncoder().encode('archive'), fileName: 'data.zip' },
           { token: 'token' },
         ),
-      ).rejects.toThrow('Only PDF files');
+      ).rejects.toThrow('supported extension');
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('keeps contract uploads PDF-only', async () => {
+      await expect(
+        apiUploadFlow(
+          'contracts',
+          'proj-1',
+          { bytes: new TextEncoder().encode('workbook'), fileName: 'contract.xlsx' },
+          { token: 'token' },
+        ),
+      ).rejects.toThrow('Contract uploads require a PDF');
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 

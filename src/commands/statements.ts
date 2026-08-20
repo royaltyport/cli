@@ -25,9 +25,9 @@ export function registerStatementsCommand(program: Command): void {
 
   statements
     .command('upload')
-    .description('Upload a statement PDF to a project (max 50 MB, PDF only)')
+    .description('Upload a supported statement file to a project (max 50 MB)')
     .argument('<project_id>', 'Project ID (UUID)')
-    .argument('[file_path]', 'Path to the PDF file')
+    .argument('[file_path]', 'Path to the statement file')
     .option('--base64 <string>', 'Base64-encoded file content (alternative to file_path)')
     .option('--file-name <name>', 'File name (required with --base64)')
     .option('--folder <path>', 'Relative source folder path')

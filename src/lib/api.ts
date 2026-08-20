@@ -1,6 +1,12 @@
 import { writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
+import {
+  getStatementUploadExtension,
+  isStatementUploadFileNameAccepted,
+  resolveStatementUploadMimeType,
+  STATEMENT_UPLOAD_ACCEPT,
+} from './statement-upload.js';
 import type {
   UploadCompleteResult,
   UploadFlowInput,
@@ -20,7 +26,7 @@ import {
 import { refreshAccessToken } from './oauth.js';
 
 export const MAX_FILE_SIZE = 52_428_800; // 50 MB, enforced server-side at complete
-export const ALLOWED_FILE_TYPE = 'application/pdf';
+export const CONTRACT_UPLOAD_FILE_TYPE = 'application/pdf';
 
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 500;
@@ -265,18 +271,31 @@ export async function apiUploadFlow(
     throw new ApiError('No file provided.', 400);
   }
 
-  const fileType = ALLOWED_FILE_TYPE;
   const fileSize = bytes.byteLength;
   const dot = fileName.lastIndexOf('.');
-  const fileExtension = dot > 0 ? fileName.slice(dot + 1) : undefined;
+  const fileExtension = dot > 0 && dot < fileName.length - 1
+    ? fileName.slice(dot + 1).toLowerCase()
+    : undefined;
 
   // Preflight: reject locally before any network call
-  if (fileExtension && fileExtension.toLowerCase() !== 'pdf') {
-    throw new ApiError(`Only PDF files can be uploaded (got .${fileExtension}).`, 400);
+  if (resource === 'contracts' && fileExtension && fileExtension !== 'pdf') {
+    throw new ApiError(`Contract uploads require a PDF file${fileExtension ? ` (got .${fileExtension})` : ''}.`, 400);
+  }
+  if (resource === 'statements' && !isStatementUploadFileNameAccepted(fileName)) {
+    throw new ApiError(
+      `Statement files must use a supported extension (${STATEMENT_UPLOAD_ACCEPT}) or have no extension.`,
+      400,
+    );
   }
   if (fileSize > MAX_FILE_SIZE) {
     throw new ApiError(`fileSize exceeds maximum of ${MAX_FILE_SIZE} bytes (50 MB).`, 400);
   }
+  const fileType = resource === 'statements'
+    ? resolveStatementUploadMimeType(fileName)
+    : CONTRACT_UPLOAD_FILE_TYPE;
+  const resolvedFileExtension = resource === 'statements'
+    ? getStatementUploadExtension(fileName) || undefined
+    : fileExtension;
 
   options.onStep?.('Requesting upload URL');
   const mint = await apiPostRetry(
@@ -285,7 +304,7 @@ export async function apiUploadFlow(
       fileName,
       fileType,
       fileSize,
-      ...(fileExtension && { fileExtension }),
+      ...(resolvedFileExtension && { fileExtension: resolvedFileExtension }),
       ...(options.extractions && { extractions: options.extractions }),
       ...(options.folderName !== undefined && { folderName: options.folderName }),
       ...(options.context !== undefined && { context: options.context }),

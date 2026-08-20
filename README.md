@@ -206,7 +206,11 @@ royaltyport contracts download $PROJECT_ID $CONTRACT_ID --output ./downloads/con
 
 ### `royaltyport statements upload <project_id> [file_path]`
 
-Upload a statement PDF to a project. PDF only, max 50 MB. The upload runs as a three-step
+Upload a statement file to a project. Supported files match the platform statement stager:
+`.csv`, `.tsv`, `.tab`, `.txt`, `.cat`, `.roy`, `.crd`, `.prt`, `.p01`, `.gdf`, `.021`,
+`.030`, `.303`, `.xlsx`, `.xltx`, `.xlsm`, `.xls`, `.xlsb`, `.ods`, `.xml`, `.gz`, `.pdf`,
+`.asc`, `.dat`, `.cp9385146`, and extensionless sources. The maximum size is 50 MB.
+The upload runs as a three-step
 signed-URL flow (there is no upload progress percentage); server-side processing continues
 after the command returns — track it with `statements status --watch`.
 
