@@ -16,6 +16,7 @@ export type {
 export type { Project, ProjectsCreateOptions, ProjectExecResult, ProjectInfoResult, ProjectExecOptions } from './projects.js';
 export type {
   Contract,
+  CustomExtraction,
   ContractProcesses,
   ExtractionItem,
   ContractsUploadOptions,

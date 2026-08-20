@@ -6,6 +6,7 @@ import { printTable, printError, printSuccess, printInfo } from '../lib/output.j
 import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
 import { buildContractUploadContext } from '../lib/upload-context.js';
 import { spinnerColor } from '../lib/theme.js';
+import { parseExtractorIds } from '../lib/custom-extractors.js';
 import type {
   ContractsUploadOptions,
   ContractsStatusOptions,
@@ -202,14 +203,24 @@ export function registerContractsCommand(program: Command): void {
     .argument('<project_id>', 'Project ID (UUID)')
     .option('-p, --page <page>', 'Page number', '1')
     .option('-n, --per-page <perPage>', 'Results per page', '20')
+    .option('--extractor-ids <ids>', 'Comma-separated custom extractor IDs whose results to include')
     .option('--score', 'Include score summary and failed/warned rules')
     .action(async (projectId: string, options: ContractsListOptions) => {
       try {
         await requireAuth();
 
+        const extractorIds = options.extractorIds ? parseExtractorIds(options.extractorIds) : undefined;
+        const query = new URLSearchParams({
+          projectId,
+          page: options.page,
+          perPage: options.perPage,
+        });
+        if (extractorIds) query.set('extractorIds', extractorIds.join(','));
+        if (options.score) query.set('score', 'true');
+
         const spinner = ora({ text: 'Fetching contracts...', color: spinnerColor }).start();
         const response = await apiGet(
-          `/v1/contracts?projectId=${projectId}&page=${options.page}&perPage=${options.perPage}${options.score ? '&score=true' : ''}`,
+          `/v1/contracts?${query.toString()}`,
         );
         spinner.stop();
 
@@ -223,10 +234,14 @@ export function registerContractsCommand(program: Command): void {
           c.id,
           c.file_name || '-',
           c.created_at ? new Date(c.created_at).toLocaleDateString() : '-',
+          extractorIds ? JSON.stringify(c.custom_extractions ?? []) : undefined,
           options.score ? (c.score?.summary?.score ?? '-') : undefined,
         ]);
 
-        printTable(options.score ? ['ID', 'File Name', 'Created', 'Score'] : ['ID', 'File Name', 'Created'], rows.map(row => row.filter(value => value !== undefined)));
+        const columns = ['ID', 'File Name', 'Created'];
+        if (extractorIds) columns.push('Custom Extractions');
+        if (options.score) columns.push('Score');
+        printTable(columns, rows.map(row => row.filter(value => value !== undefined)));
         console.log();
         printInfo(`Page ${page} of ${Math.ceil(total_count / per_page)} (${total_count} total)`);
       } catch (err) {
