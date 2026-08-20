@@ -10,6 +10,9 @@ describe('Recordings (integration)', () => {
     expect(data).toHaveProperty('items');
     expect(data).toHaveProperty('total_count');
     expect(Array.isArray(data.items)).toBe(true);
+    for (const recording of data.items as Array<Record<string, unknown>>) {
+      expect(Array.isArray(recording.identifiers)).toBe(true);
+    }
   });
 
   it('lists recordings with includeProducts', async () => {
@@ -32,6 +35,7 @@ describe('Recordings (integration)', () => {
     expect(data.id).toBe(recordingId);
     expect(typeof data.name).toBe('string');
     expect(typeof data.created_at).toBe('string');
+    expect(Array.isArray(data.identifiers)).toBe(true);
   });
 
   it('returns 404 for non-existent recording ID', async () => {

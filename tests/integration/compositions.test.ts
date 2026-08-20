@@ -10,6 +10,9 @@ describe('Compositions (integration)', () => {
     expect(data).toHaveProperty('items');
     expect(data).toHaveProperty('total_count');
     expect(Array.isArray(data.items)).toBe(true);
+    for (const composition of data.items as Array<Record<string, unknown>>) {
+      expect(Array.isArray(composition.identifiers)).toBe(true);
+    }
   });
 
   it('gets a composition by ID', async () => {
@@ -25,6 +28,7 @@ describe('Compositions (integration)', () => {
     expect(data.id).toBe(compositionId);
     expect(typeof data.name).toBe('string');
     expect(typeof data.created_at).toBe('string');
+    expect(Array.isArray(data.identifiers)).toBe(true);
   });
 
   it('returns 404 for non-existent composition ID', async () => {
