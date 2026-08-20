@@ -184,7 +184,11 @@ List contracts in a project.
 royaltyport contracts list $PROJECT_ID
 royaltyport contracts list $PROJECT_ID --page 2 --per-page 50
 royaltyport contracts list $PROJECT_ID --score
+royaltyport contracts list $PROJECT_ID --extractor-ids 201,202
 ```
+
+When `--extractor-ids` is provided, the table includes each matching custom
+result with its `extractor_id`, `extractor_name`, and extracted `data`.
 
 ### Contract staging recovery
 

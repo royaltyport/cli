@@ -4,7 +4,14 @@ export interface Contract {
   id: number;
   file_name: string;
   created_at: string;
+  custom_extractions?: CustomExtraction[];
   score?: ResourceScore;
+}
+
+export interface CustomExtraction {
+  extractor_id: number;
+  extractor_name: string | null;
+  data: unknown;
 }
 
 export interface ResourceScore {
@@ -50,6 +57,7 @@ export interface ContractsStatusOptions {
 export interface ContractsListOptions {
   page: string;
   perPage: string;
+  extractorIds?: string;
   score?: boolean;
 }
 
