@@ -135,14 +135,14 @@ export interface ContractsListOptions {
   extractorIds?: string;
   includes?: string;
   score?: boolean;
-  includeCitations?: boolean;
+  citations?: boolean;
   json?: boolean;
 }
 
 export interface ContractsGetOptions {
   includes?: string;
   score?: boolean;
-  includeCitations?: boolean;
+  citations?: boolean;
   json?: boolean;
 }
 

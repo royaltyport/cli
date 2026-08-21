@@ -206,7 +206,7 @@ export function registerContractsCommand(program: Command): void {
     .argument('<contract_id>', 'Contract numeric ID or internal UUID')
     .option('--includes <list>', 'Comma-separated extracted sub-resources to include')
     .option('--score', 'Include score summary and failed/warned rules')
-    .option('--include-citations', 'Include normalized citations on extracted items')
+    .option('--citations', 'Return citations with extracted items')
     .option('--json', 'Print the complete API data payload as JSON')
     .action(async (projectId: string, contractId: string, options: ContractsGetOptions) => {
       try {
@@ -216,7 +216,7 @@ export function registerContractsCommand(program: Command): void {
         const searchParams = new URLSearchParams({ projectId });
         if (includes.length > 0) searchParams.set('includes', includes.join(','));
         if (options.score) searchParams.set('score', 'true');
-        if (options.includeCitations) searchParams.set('includeCitations', 'true');
+        if (options.citations) searchParams.set('citations', 'true');
 
         const spinner = ora({ text: 'Fetching contract...', color: spinnerColor }).start();
         const response = await apiGet(
@@ -246,7 +246,7 @@ export function registerContractsCommand(program: Command): void {
             printInfo('No commitments found.');
           } else {
             const columns = ['ID', 'Type', 'Title', 'Deliverables', 'Recurring', 'Linked'];
-            if (options.includeCitations) columns.push('Citations');
+            if (options.citations) columns.push('Citations');
             printTable(
               columns,
               commitments.map(commitment => [
@@ -256,7 +256,7 @@ export function registerContractsCommand(program: Command): void {
                 summarizeLinkedDeliverables(commitment),
                 summarizeCommitmentRecurring(commitment),
                 commitment.linked_assets.length,
-                ...(options.includeCitations ? [commitment.citations?.length ?? 0] : []),
+                ...(options.citations ? [commitment.citations?.length ?? 0] : []),
               ]),
             );
           }
@@ -276,7 +276,7 @@ export function registerContractsCommand(program: Command): void {
     .option('--extractor-ids <ids>', 'Comma-separated custom extractor IDs whose results to include')
     .option('--includes <list>', 'Comma-separated extracted sub-resources to include')
     .option('--score', 'Include score summary and failed/warned rules')
-    .option('--include-citations', 'Include normalized citations on extracted items')
+    .option('--citations', 'Return citations with extracted items')
     .option('--json', 'Print the complete API data payload as JSON')
     .action(async (projectId: string, options: ContractsListOptions) => {
       try {
@@ -292,7 +292,7 @@ export function registerContractsCommand(program: Command): void {
         if (extractorIds) searchParams.set('extractorIds', extractorIds.join(','));
         if (includes.length > 0) searchParams.set('includes', includes.join(','));
         if (options.score) searchParams.set('score', 'true');
-        if (options.includeCitations) searchParams.set('includeCitations', 'true');
+        if (options.citations) searchParams.set('citations', 'true');
 
         const spinner = ora({ text: 'Fetching contracts...', color: spinnerColor }).start();
         const response = await apiGet(`/v1/contracts?${searchParams.toString()}`)
