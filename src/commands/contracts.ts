@@ -2,7 +2,8 @@ import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
 import { apiGet, apiPost, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
-import { printTable, printError, printSuccess, printInfo } from '../lib/output.js';
+import { parseContractIncludes, summarizeCommitmentRecurring, summarizeLinkedDeliverables } from '../lib/contracts.js';
+import { printTable, printError, printSuccess, printInfo, printJson } from '../lib/output.js';
 import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
 import { buildContractUploadContext } from '../lib/upload-context.js';
 import { spinnerColor } from '../lib/theme.js';
@@ -11,6 +12,7 @@ import type {
   ContractsUploadOptions,
   ContractsStatusOptions,
   ContractsListOptions,
+  ContractsGetOptions,
   ContractsDownloadOptions,
   ContractProcesses,
   PaginatedResult,
@@ -22,7 +24,7 @@ import type {
 export function registerContractsCommand(program: Command): void {
   const contracts = program
     .command('contracts')
-    .description('Manage contracts: upload, list, download, and track processing status');
+    .description('Manage contracts: upload, list, retrieve, download, and track processing status');
 
   contracts
     .command('upload')
@@ -198,50 +200,133 @@ export function registerContractsCommand(program: Command): void {
     });
 
   contracts
+    .command('get')
+    .description('Get a contract by numeric ID or internal UUID')
+    .argument('<project_id>', 'Project ID (UUID)')
+    .argument('<contract_id>', 'Contract numeric ID or internal UUID')
+    .option('--includes <list>', 'Comma-separated extracted sub-resources to include')
+    .option('--score', 'Include score summary and failed/warned rules')
+    .option('--include-citations', 'Include normalized citations on extracted items')
+    .option('--json', 'Print the complete API data payload as JSON')
+    .action(async (projectId: string, contractId: string, options: ContractsGetOptions) => {
+      try {
+        await requireAuth();
+
+        const includes = parseContractIncludes(options.includes);
+        const searchParams = new URLSearchParams({ projectId });
+        if (includes.length > 0) searchParams.set('includes', includes.join(','));
+        if (options.score) searchParams.set('score', 'true');
+        if (options.includeCitations) searchParams.set('includeCitations', 'true');
+
+        const spinner = ora({ text: 'Fetching contract...', color: spinnerColor }).start();
+        const response = await apiGet(
+          `/v1/contracts/${encodeURIComponent(contractId)}?${searchParams.toString()}`,
+        ).finally(() => spinner.stop());
+
+        const contract = response.data as Contract;
+        if (options.json) {
+          printJson(contract);
+          return;
+        }
+
+        const details: (string | number)[][] = [
+          ['ID', contract.id],
+          ['Internal UUID', contract.internal_uuid || '-'],
+          ['File Name', contract.file_name || '-'],
+          ['File Type', contract.file_type || '-'],
+          ['Created', contract.created_at ? new Date(contract.created_at).toLocaleString() : '-'],
+        ];
+        if (options.score) details.push(['Score', contract.score?.summary?.score ?? '-']);
+        printTable(['Field', 'Value'], details);
+
+        if (includes.includes('commitments')) {
+          console.log();
+          const commitments = contract.extractions?.commitments ?? [];
+          if (commitments.length === 0) {
+            printInfo('No commitments found.');
+          } else {
+            const columns = ['ID', 'Type', 'Title', 'Deliverables', 'Recurring', 'Linked'];
+            if (options.includeCitations) columns.push('Citations');
+            printTable(
+              columns,
+              commitments.map(commitment => [
+                commitment.id,
+                commitment.type || '-',
+                commitment.title || '-',
+                summarizeLinkedDeliverables(commitment),
+                summarizeCommitmentRecurring(commitment),
+                commitment.linked_assets.length,
+                ...(options.includeCitations ? [commitment.citations?.length ?? 0] : []),
+              ]),
+            );
+          }
+        }
+      } catch (err) {
+        printError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  contracts
     .command('list')
     .description('List contracts in a project')
     .argument('<project_id>', 'Project ID (UUID)')
     .option('-p, --page <page>', 'Page number', '1')
     .option('-n, --per-page <perPage>', 'Results per page', '20')
     .option('--extractor-ids <ids>', 'Comma-separated custom extractor IDs whose results to include')
+    .option('--includes <list>', 'Comma-separated extracted sub-resources to include')
     .option('--score', 'Include score summary and failed/warned rules')
+    .option('--include-citations', 'Include normalized citations on extracted items')
+    .option('--json', 'Print the complete API data payload as JSON')
     .action(async (projectId: string, options: ContractsListOptions) => {
       try {
         await requireAuth();
 
         const extractorIds = options.extractorIds ? parseExtractorIds(options.extractorIds) : undefined;
-        const query = new URLSearchParams({
+        const includes = parseContractIncludes(options.includes);
+        const searchParams = new URLSearchParams({
           projectId,
           page: options.page,
           perPage: options.perPage,
         });
-        if (extractorIds) query.set('extractorIds', extractorIds.join(','));
-        if (options.score) query.set('score', 'true');
+        if (extractorIds) searchParams.set('extractorIds', extractorIds.join(','));
+        if (includes.length > 0) searchParams.set('includes', includes.join(','));
+        if (options.score) searchParams.set('score', 'true');
+        if (options.includeCitations) searchParams.set('includeCitations', 'true');
 
         const spinner = ora({ text: 'Fetching contracts...', color: spinnerColor }).start();
-        const response = await apiGet(
-          `/v1/contracts?${query.toString()}`,
-        );
-        spinner.stop();
+        const response = await apiGet(`/v1/contracts?${searchParams.toString()}`)
+          .finally(() => spinner.stop());
 
         const { items, total_count, page, per_page } = response.data as PaginatedResult<Contract>;
+        if (options.json) {
+          printJson(response.data);
+          return;
+        }
         if (!items || items.length === 0) {
           printInfo('No contracts found.');
           return;
         }
 
-        const rows = items.map(c => [
-          c.id,
-          c.file_name || '-',
-          c.created_at ? new Date(c.created_at).toLocaleDateString() : '-',
-          extractorIds ? JSON.stringify(c.custom_extractions ?? []) : undefined,
-          options.score ? (c.score?.summary?.score ?? '-') : undefined,
-        ]);
-
+        const includeCommitments = includes.includes('commitments');
         const columns = ['ID', 'File Name', 'Created'];
         if (extractorIds) columns.push('Custom Extractions');
+        if (includeCommitments) columns.push('Commitments');
         if (options.score) columns.push('Score');
-        printTable(columns, rows.map(row => row.filter(value => value !== undefined)));
+
+        const rows = items.map((contract): (string | number)[] => {
+          const row: (string | number)[] = [
+            contract.id,
+            contract.file_name || '-',
+            contract.created_at ? new Date(contract.created_at).toLocaleDateString() : '-',
+          ];
+          if (extractorIds) row.push(JSON.stringify(contract.custom_extractions ?? []));
+          if (includeCommitments) row.push(contract.extractions?.commitments?.length ?? 0);
+          if (options.score) row.push(contract.score?.summary?.score ?? '-');
+          return row;
+        });
+
+        printTable(columns, rows);
         console.log();
         printInfo(`Page ${page} of ${Math.ceil(total_count / per_page)} (${total_count} total)`);
       } catch (err) {

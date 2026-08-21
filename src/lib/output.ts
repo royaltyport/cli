@@ -37,3 +37,7 @@ export function printSuccess(message: string): void {
 export function printInfo(message: string): void {
   console.log(accent(message));
 }
+
+export function printJson(value: unknown): void {
+  console.log(JSON.stringify(value, null, 2));
+}

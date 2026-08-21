@@ -100,7 +100,18 @@ royaltyport contracts status <project_id> <staging_id> --watch
 ```bash
 royaltyport contracts list <project_id>
 royaltyport contracts list <project_id> --page 2 --per-page 50
+royaltyport contracts list <project_id> --includes commitments
+royaltyport contracts list <project_id> --includes commitments --include-citations --json
+royaltyport contracts get <project_id> <contract_id>
+royaltyport contracts get <project_id> <contract_id> --includes commitments
+royaltyport contracts get <project_id> <contract_id> --includes commitments --include-citations --json
 ```
+
+Commitments expose extracted deliverables as `linked_deliverables` and
+automatically joined recording/composition links as `linked_assets`.
+Citations are omitted by default; pass `--include-citations` to return the
+uniform citation array on included extraction items.
+Reconciliation metadata is omitted.
 
 ### Download a contract
 

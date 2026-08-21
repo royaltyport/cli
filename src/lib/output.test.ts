@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { printTable, printError, printSuccess, printInfo, printStatusLine } from './output.js';
+import { printTable, printError, printSuccess, printInfo, printJson, printStatusLine } from './output.js';
 
 describe('output', () => {
   beforeEach(() => {
@@ -61,6 +61,14 @@ describe('output', () => {
       printInfo('fyi');
 
       expect(console.log).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('printJson', () => {
+    it('prints deterministic formatted JSON', () => {
+      printJson({ commitments: [{ id: 1 }] });
+
+      expect(console.log).toHaveBeenCalledWith(`{\n  "commitments": [\n    {\n      "id": 1\n    }\n  ]\n}`);
     });
   });
 });

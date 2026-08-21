@@ -185,10 +185,28 @@ royaltyport contracts list $PROJECT_ID
 royaltyport contracts list $PROJECT_ID --page 2 --per-page 50
 royaltyport contracts list $PROJECT_ID --score
 royaltyport contracts list $PROJECT_ID --extractor-ids 201,202
+royaltyport contracts list $PROJECT_ID --includes commitments
+royaltyport contracts list $PROJECT_ID --includes commitments --include-citations --json
 ```
 
 When `--extractor-ids` is provided, the table includes each matching custom
 result with its `extractor_id`, `extractor_name`, and extracted `data`.
+
+### `royaltyport contracts get <project_id> <contract_id>`
+
+Get one contract by numeric ID or internal UUID. Includes are optional;
+commitment asset links are joined automatically.
+
+```bash
+royaltyport contracts get $PROJECT_ID $CONTRACT_ID
+royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes commitments
+royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes commitments --include-citations --json
+```
+
+Commitment JSON uses `linked_deliverables` for extracted deliverables and
+`linked_assets` for recording/composition links. Reconciliation metadata is
+omitted. Citations are omitted by default; `--include-citations` returns their
+normalized shape.
 
 ### Contract staging recovery
 
