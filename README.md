@@ -210,6 +210,16 @@ Commitment JSON uses `linked_deliverables` for deliverables and `linked_assets`
 for recording/composition links. Pass `--citations` to return supporting
 citations.
 
+### `royaltyport contracts update <project_id> <contract_id>`
+
+Replace the complete contract tag list. Missing project contract tags are
+created automatically; use `--clear-tags` to remove every tag.
+
+```bash
+royaltyport contracts update $PROJECT_ID $CONTRACT_ID --tags "Priority,Artist agreement"
+royaltyport contracts update $PROJECT_ID $CONTRACT_ID --clear-tags
+```
+
 ### Contract staging recovery
 
 `status --watch` stops when an upload is paused and prints the applicable next
@@ -295,6 +305,25 @@ royaltyport statements list $PROJECT_ID --page 2 --per-page 50
 royaltyport statements list $PROJECT_ID --score
 ```
 
+### `royaltyport statements update <project_id> <statement_id>`
+
+Patch statement tags, parties, periods, or currencies. Omitted fields remain
+unchanged. Each nullable field has a matching `--clear-*` option.
+
+```bash
+royaltyport statements update $PROJECT_ID $STATEMENT_ID \
+  --tags "Priority,Quarterly" \
+  --payee "Ocean Wave Records Ltd" \
+  --accounting-period 2026Q1 \
+  --transaction-currency USD \
+  --royalty-currency GBP
+
+royaltyport statements update $PROJECT_ID $STATEMENT_ID \
+  --clear-payee \
+  --clear-target-period \
+  --clear-tags
+```
+
 Retry a statement paused at the project document limit:
 
 ```bash
@@ -308,6 +337,24 @@ Download a statement file.
 ```bash
 royaltyport statements download $PROJECT_ID $STATEMENT_ID
 royaltyport statements download $PROJECT_ID $STATEMENT_ID --output ./downloads/statement.pdf
+```
+
+### `royaltyport tags list <project_id> <scope>`
+
+List contract or statement tag definitions with usage counts.
+
+```bash
+royaltyport tags list $PROJECT_ID contracts
+royaltyport tags list $PROJECT_ID statements --search priority --page 1 --per-page 100
+```
+
+### `royaltyport tags update <project_id> <scope> <resource_id>`
+
+Replace the complete tag list of a numeric contract or statement ID.
+
+```bash
+royaltyport tags update $PROJECT_ID contracts $CONTRACT_ID --tags "Priority,Artist agreement"
+royaltyport tags update $PROJECT_ID statements $STATEMENT_ID --clear-tags
 ```
 
 ## Agent Skill

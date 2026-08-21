@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { apiGet, apiPost, apiPostRetry, apiPutExternal, apiUploadFlow, requireAuth, ApiError, MAX_FILE_SIZE } from './api.js';
+import { apiGet, apiPost, apiPostRetry, apiPut, apiPutExternal, apiUploadFlow, requireAuth, ApiError, MAX_FILE_SIZE } from './api.js';
 
 vi.mock('./config.js', () => ({
   getToken: vi.fn(() => 'test-token'),
@@ -79,6 +79,37 @@ describe('api', () => {
         }),
       );
       expect(result.data).toEqual({ created: true });
+    });
+  });
+
+  describe('apiPut', () => {
+    it('sends a non-retrying authenticated PUT with a JSON body', async () => {
+      fetchSpy.mockResolvedValue(mockResponse({ data: { id: 42, tags: ['Priority'] } }));
+
+      const result = await apiPut(
+        '/v1/contracts/42?projectId=proj-1',
+        { tags: ['Priority'] },
+        'my-token',
+      );
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://api.example.com/v1/contracts/42?projectId=proj-1',
+        expect.objectContaining({
+          method: 'PUT',
+          headers: expect.objectContaining({ Authorization: 'Bearer my-token' }),
+          body: '{"tags":["Priority"]}',
+        }),
+      );
+      expect(result.data).toEqual({ id: 42, tags: ['Priority'] });
+    });
+
+    it('does not replay a failed write', async () => {
+      fetchSpy.mockResolvedValue(mockResponse({ error: { message: 'server failed' } }, { status: 500 }));
+
+      await expect(apiPut('/v1/tags?projectId=proj-1', { tags: [] }, 'token'))
+        .rejects.toThrow('server failed');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
     });
   });
 

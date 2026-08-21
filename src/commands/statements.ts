@@ -1,15 +1,18 @@
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
-import { apiGet, apiPost, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
-import { printTable, printError, printSuccess, printInfo } from '../lib/output.js';
+import { apiGet, apiPost, apiPut, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
+import { printTable, printError, printSuccess, printInfo, printJson } from '../lib/output.js';
 import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
 import { buildStatementUploadContext } from '../lib/upload-context.js';
 import { spinnerColor } from '../lib/theme.js';
+import { buildStatementUpdatePatch } from '../lib/statement-updates.js';
 import type {
   StatementsUploadOptions,
   StatementsStatusOptions,
   StatementsListOptions,
+  StatementsUpdateOptions,
+  StatementUpdateResult,
   StatementsDownloadOptions,
   StatementProcesses,
   PaginatedResult,
@@ -21,7 +24,7 @@ import type {
 export function registerStatementsCommand(program: Command): void {
   const statements = program
     .command('statements')
-    .description('Manage statements: upload, list, download, and track processing status');
+    .description('Manage statements: upload, list, update, download, and track processing status');
 
   statements
     .command('upload')
@@ -190,6 +193,59 @@ export function registerStatementsCommand(program: Command): void {
           spinner.stop();
           printProcessStatus(data, { resourceType: 'statement', projectId });
         }
+      } catch (err) {
+        printError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  statements
+    .command('update')
+    .description('Update statement tags, parties, periods, or currencies')
+    .argument('<project_id>', 'Project ID (UUID)')
+    .argument('<statement_id>', 'Statement numeric ID')
+    .option('--tags <list>', 'Comma-separated replacement tag names')
+    .option('--clear-tags', 'Remove every tag from the statement')
+    .option('--payee <name>', 'Set the licensor/payee name')
+    .option('--clear-payee', 'Clear the licensor/payee')
+    .option('--payor <name>', 'Set the licensee/payor name')
+    .option('--clear-payor', 'Clear the licensee/payor')
+    .option('--accounting-period <period>', 'Set the accounting period, for example 2026Q1')
+    .option('--clear-accounting-period', 'Clear the accounting period override')
+    .option('--target-period <period>', 'Set the target period, for example 2026Q1')
+    .option('--clear-target-period', 'Clear the target period override')
+    .option('--transaction-currency <code>', 'Set the three-letter transaction currency')
+    .option('--clear-transaction-currency', 'Clear the transaction currency override')
+    .option('--royalty-currency <code>', 'Set the three-letter royalty currency')
+    .option('--clear-royalty-currency', 'Clear the royalty currency override')
+    .option('--json', 'Print the complete API data payload as JSON')
+    .action(async (projectId: string, statementId: string, options: StatementsUpdateOptions) => {
+      try {
+        const patch = buildStatementUpdatePatch(options);
+        await requireAuth();
+
+        const spinner = ora({ text: 'Updating statement metadata...', color: spinnerColor }).start();
+        const response = await apiPut(
+          `/v1/statements/${encodeURIComponent(statementId)}?${new URLSearchParams({ projectId }).toString()}`,
+          patch,
+        ).finally(() => spinner.stop());
+
+        const result = response.data as StatementUpdateResult;
+        if (options.json) {
+          printJson(result);
+          return;
+        }
+        printSuccess('Statement metadata updated.');
+        printTable(['Field', 'Value'], [
+          ['ID', result.id],
+          ['Tags', result.tags.join(', ') || '-'],
+          ['Payee', result.payee ?? '-'],
+          ['Payor', result.payor ?? '-'],
+          ['Accounting Period', result.accounting_period ?? '-'],
+          ['Target Period', result.target_period ?? '-'],
+          ['Transaction Currency', result.currency_tx ?? '-'],
+          ['Royalty Currency', result.currency ?? '-'],
+        ]);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
         process.exit(1);

@@ -51,6 +51,46 @@ export interface StatementsListOptions {
   score?: boolean;
 }
 
+export interface StatementsUpdateOptions {
+  tags?: string;
+  clearTags?: boolean;
+  payee?: string;
+  clearPayee?: boolean;
+  payor?: string;
+  clearPayor?: boolean;
+  accountingPeriod?: string;
+  clearAccountingPeriod?: boolean;
+  targetPeriod?: string;
+  clearTargetPeriod?: boolean;
+  transactionCurrency?: string;
+  clearTransactionCurrency?: boolean;
+  royaltyCurrency?: string;
+  clearRoyaltyCurrency?: boolean;
+  json?: boolean;
+}
+
+export interface StatementUpdatePatch {
+  tags?: string[];
+  payee?: string | null;
+  payor?: string | null;
+  accountingPeriod?: string | null;
+  targetPeriod?: string | null;
+  currencyTx?: string | null;
+  currency?: string | null;
+}
+
+export interface StatementUpdateResult {
+  id: number;
+  tags: string[];
+  payee: string | null;
+  payor: string | null;
+  accounting_period: string | null;
+  target_period: string | null;
+  currency_tx: string | null;
+  currency: string | null;
+  updated_at: string;
+}
+
 export interface StatementsDownloadOptions {
   output?: string;
 }

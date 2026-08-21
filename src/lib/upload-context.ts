@@ -1,3 +1,4 @@
+import { parseTagNames } from './tags.js';
 import type {
   ContractUploadContext,
   ContractsUploadOptions,
@@ -8,7 +9,7 @@ import type {
 
 function parseTags(value: string | undefined): string[] | undefined {
   if (!value) return undefined;
-  const tags = [...new Set(value.split(',').map((tag) => tag.trim()).filter(Boolean))];
+  const tags = parseTagNames(value);
   return tags.length > 0 ? tags : undefined;
 }
 

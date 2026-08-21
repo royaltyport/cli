@@ -384,6 +384,17 @@ export interface ContractsGetOptions {
   json?: boolean;
 }
 
+export interface ContractsUpdateOptions {
+  tags?: string;
+  clearTags?: boolean;
+  json?: boolean;
+}
+
+export interface ContractUpdateResult {
+  id: number;
+  tags: string[];
+}
+
 export interface ContractsDownloadOptions {
   output?: string;
 }

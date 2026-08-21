@@ -1,18 +1,21 @@
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
-import { apiGet, apiPost, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
+import { apiGet, apiPost, apiPut, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
 import { parseContractIncludes, summarizeCommitmentRecurring, summarizeLinkedDeliverables } from '../lib/contracts.js';
 import { printTable, printError, printSuccess, printInfo, printJson } from '../lib/output.js';
 import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
 import { buildContractUploadContext } from '../lib/upload-context.js';
 import { spinnerColor } from '../lib/theme.js';
 import { parseExtractorIds } from '../lib/custom-extractors.js';
+import { buildTagReplacement } from '../lib/tags.js';
 import type {
   ContractsUploadOptions,
   ContractsStatusOptions,
   ContractsListOptions,
   ContractsGetOptions,
+  ContractsUpdateOptions,
+  ContractUpdateResult,
   ContractsDownloadOptions,
   ContractProcesses,
   PaginatedResult,
@@ -24,7 +27,7 @@ import type {
 export function registerContractsCommand(program: Command): void {
   const contracts = program
     .command('contracts')
-    .description('Manage contracts: upload, list, retrieve, download, and track processing status');
+    .description('Manage contracts: upload, list, retrieve, update, download, and track processing status');
 
   contracts
     .command('upload')
@@ -261,6 +264,41 @@ export function registerContractsCommand(program: Command): void {
             );
           }
         }
+      } catch (err) {
+        printError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  contracts
+    .command('update')
+    .description('Replace the complete tag list of a contract')
+    .argument('<project_id>', 'Project ID (UUID)')
+    .argument('<contract_id>', 'Contract numeric ID or internal UUID')
+    .option('--tags <list>', 'Comma-separated replacement tag names')
+    .option('--clear-tags', 'Remove every tag from the contract')
+    .option('--json', 'Print the complete API data payload as JSON')
+    .action(async (projectId: string, contractId: string, options: ContractsUpdateOptions) => {
+      try {
+        const tags = buildTagReplacement(options.tags, options.clearTags);
+        await requireAuth();
+
+        const spinner = ora({ text: 'Updating contract tags...', color: spinnerColor }).start();
+        const response = await apiPut(
+          `/v1/contracts/${encodeURIComponent(contractId)}?${new URLSearchParams({ projectId }).toString()}`,
+          { tags },
+        ).finally(() => spinner.stop());
+
+        const result = response.data as ContractUpdateResult;
+        if (options.json) {
+          printJson(result);
+          return;
+        }
+        printSuccess('Contract tags updated.');
+        printTable(['Field', 'Value'], [
+          ['ID', result.id],
+          ['Tags', result.tags.join(', ') || '-'],
+        ]);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
         process.exit(1);

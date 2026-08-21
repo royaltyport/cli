@@ -152,6 +152,21 @@ export async function apiPost(path: string, data: unknown, token?: string): Prom
   return body;
 }
 
+export async function apiPut(path: string, data: unknown, token?: string): Promise<Record<string, unknown>> {
+  const baseUrl = getApiUrl();
+  const resolvedToken = token || await requireAuth();
+  const res = await fetch(`${baseUrl}${path}`, {
+    method: 'PUT',
+    headers: buildHeaders(resolvedToken),
+    body: JSON.stringify(data),
+  });
+  const body = await parseResponse(res);
+  if (!res.ok) {
+    throwApiError(res, body);
+  }
+  return body;
+}
+
 export async function apiDelete(path: string, token?: string): Promise<Record<string, unknown>> {
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();

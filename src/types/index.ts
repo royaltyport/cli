@@ -54,6 +54,8 @@ export type {
   ContractsStatusOptions,
   ContractsListOptions,
   ContractsGetOptions,
+  ContractsUpdateOptions,
+  ContractUpdateResult,
   ContractsDownloadOptions,
   ResourceScore,
 } from './contracts.js';
@@ -63,7 +65,18 @@ export type {
   StatementsUploadOptions,
   StatementsStatusOptions,
   StatementsListOptions,
+  StatementsUpdateOptions,
+  StatementUpdatePatch,
+  StatementUpdateResult,
   StatementsDownloadOptions,
 } from './statements.js';
+export type {
+  Tag,
+  TagsListOptions,
+  TagsUpdateOptions,
+  UpdatedTag,
+  TagUpdateResult,
+} from './tags.js';
+export type { TagScope } from '../lib/tags.js';
 export type { LoginOptions } from './login.js';
 export type { KnowledgeSearchOptions, KnowledgeSearchNode, KnowledgeSearchResult } from './knowledge.js';
