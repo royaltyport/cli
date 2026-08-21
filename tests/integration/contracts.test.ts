@@ -22,7 +22,10 @@ describe('Contracts (integration)', () => {
   it('lists and gets commitments with automatic asset links', async () => {
     const listResponse = await get(`/v1/contracts?projectId=${PROJECT_ID}&perPage=1&includes=commitments&citations=true`);
     const listed = listResponse.data as PaginatedResult<Contract>;
-    expect(Array.isArray(listed.items[0]?.extractions?.commitments)).toBe(true);
+    expect(Array.isArray(listed.items)).toBe(true);
+    for (const listedContract of listed.items) {
+      expect(Array.isArray(listedContract.extractions?.commitments)).toBe(true);
+    }
 
     const contractId = listed.items[0]?.id;
     if (!contractId) return;
