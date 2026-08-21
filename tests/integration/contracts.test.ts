@@ -13,10 +13,21 @@ describe('Contracts (integration)', () => {
   });
 
   it('lists contracts with includes', async () => {
-    const response = await get(`/v1/contracts?projectId=${PROJECT_ID}&includes=entities,royalties`);
+    const response = await get(`/v1/contracts?projectId=${PROJECT_ID}&includes=entities,royalties,languages,balances`);
 
-    const data = response.data as Record<string, unknown>;
+    const data = response.data as PaginatedResult<Contract>;
     expect(data).toHaveProperty('items');
+    for (const contract of data.items) {
+      expect(Array.isArray(contract.extractions?.languages)).toBe(true);
+      expect(Array.isArray(contract.extractions?.balances)).toBe(true);
+      for (const language of contract.extractions?.languages ?? []) {
+        expect(typeof language.id).toBe('number');
+        expect(language).not.toHaveProperty('internal_id');
+        expect(typeof language.internal_uuid).toBe('string');
+        expect(typeof language.created_at).toBe('string');
+        expect(typeof language.updated_at).toBe('string');
+      }
+    }
   });
 
   it('lists and gets commitments with automatic asset links', async () => {
@@ -33,6 +44,10 @@ describe('Contracts (integration)', () => {
     const contract = getResponse.data as Contract;
 
     for (const commitment of contract.extractions?.commitments ?? []) {
+      expect(commitment).not.toHaveProperty('internal_id');
+      expect(typeof commitment.internal_uuid).toBe('string');
+      expect(typeof commitment.created_at).toBe('string');
+      expect(typeof commitment.updated_at).toBe('string');
       expect(Array.isArray(commitment.linked_deliverables)).toBe(true);
       expect(Array.isArray(commitment.citations)).toBe(true);
       for (const citation of commitment.citations ?? []) {
@@ -61,7 +76,7 @@ describe('Contracts (integration)', () => {
       const result = await upload(
         'contracts',
         { base64: testContent, fileName: 'cli-test-contract.pdf' },
-        { extractions: ['extract-dates', 'extract-signatures'] },
+        { extractions: ['extract-dates', 'extract-signatures', 'extract-language'] },
       );
 
       expect(typeof result.staging_id).toBe('number');

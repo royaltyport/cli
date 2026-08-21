@@ -142,7 +142,7 @@ after the command returns — track it with `contracts status --watch`.
 royaltyport contracts upload $PROJECT_ID contract.pdf
 
 # Upload with extractions
-royaltyport contracts upload $PROJECT_ID contract.pdf --extractions extract-royalties,extract-splits
+royaltyport contracts upload $PROJECT_ID contract.pdf --extractions extract-language,extract-royalties,extract-splits
 
 # Upload with approved folder and tag metadata. Existing exact tag names are
 # reused; missing project contract tags are created automatically.
@@ -186,11 +186,13 @@ royaltyport contracts list $PROJECT_ID --page 2 --per-page 50
 royaltyport contracts list $PROJECT_ID --score
 royaltyport contracts list $PROJECT_ID --extractor-ids 201,202
 royaltyport contracts list $PROJECT_ID --includes commitments
+royaltyport contracts list $PROJECT_ID --includes languages,balances,targets
 royaltyport contracts list $PROJECT_ID --includes commitments --citations --json
 ```
 
 When `--extractor-ids` is provided, the table includes each matching custom
-result with its `extractor_id`, `extractor_name`, and extracted `data`.
+result with `id`, `internal_uuid`, `created_at`, `updated_at`, `extractor_id`,
+`extractor_name`, and extracted `data`.
 
 ### `royaltyport contracts get <project_id> <contract_id>`
 
@@ -200,6 +202,7 @@ commitment asset links are joined automatically.
 ```bash
 royaltyport contracts get $PROJECT_ID $CONTRACT_ID
 royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes commitments
+royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes languages,balances,targets --json
 royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes commitments --citations --json
 ```
 

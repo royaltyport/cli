@@ -9,6 +9,14 @@ import {
 function commitment(overrides: Partial<ContractCommitment> = {}): ContractCommitment {
   return {
     id: 1,
+    internal_uuid: '11111111-1111-4111-8111-111111111111',
+    created_at: '2026-08-21T10:00:00Z',
+    updated_at: '2026-08-21T10:05:00Z',
+    title: null,
+    type: null,
+    description: null,
+    recurring_unit: null,
+    recurring_quantity: null,
     linked_deliverables: [],
     citations: [],
     linked_assets: [],
