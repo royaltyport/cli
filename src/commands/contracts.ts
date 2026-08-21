@@ -231,7 +231,7 @@ export function registerContractsCommand(program: Command): void {
 
         const details: (string | number)[][] = [
           ['ID', contract.id],
-          ['Internal UUID', contract.internal_uuid || '-'],
+          ['Integration UUID', contract.internal_uuid || '-'],
           ['File Name', contract.file_name || '-'],
           ['File Type', contract.file_type || '-'],
           ['Created', contract.created_at ? new Date(contract.created_at).toLocaleString() : '-'],
