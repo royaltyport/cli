@@ -29,6 +29,19 @@ describe('CLI update and tag commands', () => {
     ]));
   });
 
+  it('registers paginated contract extraction access', () => {
+    const contracts = child(program, 'contracts');
+    const extraction = child(contracts, 'extractions');
+    expect(extraction.usage()).toContain('<project_id> <contract_id> <key>');
+    expect(optionNames(extraction)).toEqual(expect.arrayContaining([
+      '--page',
+      '--per-page',
+      '--citations',
+      '--json',
+    ]));
+    expect(extraction.options.find(option => option.long === '--per-page')?.defaultValue).toBe('100');
+  });
+
   it('registers tag list and update commands', () => {
     const tags = child(program, 'tags');
     expect(child(tags, 'list').usage()).toContain('<project_id> <scope>');

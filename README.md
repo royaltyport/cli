@@ -197,7 +197,9 @@ result with `id`, `internal_uuid`, `created_at`, `updated_at`, `extractor_id`,
 ### `royaltyport contracts get <project_id> <contract_id>`
 
 Get one contract by numeric ID or internal UUID. Includes are optional;
-commitment asset links are joined automatically.
+each include remains an embedded array capped at 100 items. Commitment asset
+links are joined automatically. Use `contracts extractions` when you need
+complete pagination.
 
 ```bash
 royaltyport contracts get $PROJECT_ID $CONTRACT_ID
@@ -209,6 +211,19 @@ royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes commitments --cita
 Commitment JSON uses `linked_deliverables` for deliverables and `linked_assets`
 for recording/composition links. Pass `--citations` to return supporting
 citations.
+
+### `royaltyport contracts extractions <project_id> <contract_id> <key>`
+
+Page one extracted contract sub-resource independently. All include keys are
+supported; dedicated pages default to 100 and allow up to 250 items. Payment
+extractions use the public key `compensations`. Only top-level items are paged;
+nested arrays remain embedded and have no item-count cap added by this command.
+
+```bash
+royaltyport contracts extractions $PROJECT_ID $CONTRACT_ID recordings
+royaltyport contracts extractions $PROJECT_ID $CONTRACT_ID compositions --page 2 --per-page 250
+royaltyport contracts extractions $PROJECT_ID $CONTRACT_ID commitments --citations --json
+```
 
 ### `royaltyport contracts update <project_id> <contract_id>`
 

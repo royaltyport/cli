@@ -48,64 +48,84 @@ export interface ContractCitation {
 export interface ContractExtractionIdentity {
   id: number;
   internal_uuid: string;
-  created_at: string | null;
-  updated_at: string | null;
+  created_at?: string;
+  updated_at?: string;
   citations?: ContractCitation[];
 }
 
+export interface ContractCrmLink {
+  id: number;
+  internal_uuid: string;
+}
+
 export interface ContractEntity extends ContractExtractionIdentity {
-  name: string;
-  email: string | null;
-  phone: string | null;
-  address: string | null;
-  shorthand: string | null;
-  is_entity: boolean | null;
-  identifiers: unknown | null;
-  division_of: string | null;
-  role: string | null;
-  behalf_of: string | null;
+  name?: string;
+  legal_name?: string;
+  trading_as?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  shorthand?: string;
+  identifiers: unknown[];
+  division_of?: string;
+  aliases: unknown[];
+  artists: unknown[];
+  writers: unknown[];
+  representatives: unknown[];
+  creator_attribution?: unknown;
+  role?: string;
+  behalf_of?: string;
+  crm_entity?: ContractCrmLink;
 }
 
-export interface ContractArtist extends ContractExtractionIdentity {
-  name: string;
-  role: string | null;
-  entity_id: number | null;
+export interface ContractArtist {
+  name?: string;
+  role: string;
+  crm_artist?: ContractCrmLink;
+  crm_entity?: ContractCrmLink;
+  created_at?: string;
+  updated_at?: string;
+  citations?: ContractCitation[];
 }
 
-export interface ContractWriter extends ContractExtractionIdentity {
-  name: string;
-  role: string | null;
-  entity_id: number | null;
+export interface ContractWriter {
+  name?: string;
+  role: string;
+  crm_writer?: ContractCrmLink;
+  crm_entity?: ContractCrmLink;
+  created_at?: string;
+  updated_at?: string;
+  citations?: ContractCitation[];
 }
 
 export interface ContractRuleBase {
-  type: string | null;
-  definition: string | null;
+  type: string;
+  definition?: string;
   citations?: ContractCitation[];
 }
 
 export interface ContractRoyalty extends ContractExtractionIdentity {
-  rule_id: string | null;
-  rate: number | string | null;
-  rate_type: string | null;
-  title: string | null;
-  description: string | null;
-  selection: unknown | null;
+  rule_id?: string;
+  rate?: string;
+  rate_type?: string;
+  title?: string;
+  description?: string;
+  selection?: string;
   applies_to: string[];
-  calculation_base: ContractRuleBase | null;
+  calculation_base?: ContractRuleBase;
 }
 
 export interface ContractSplitParty {
   id: number;
-  name?: string;
-  percentage?: number | string;
+  name: string;
+  percentage: string;
   contract_entity_id?: number;
   entity_id?: number;
 }
 
 export type ContractSplitAsset = {
   id: number;
-  coverage: string | null;
+  coverage: string;
 } & (
   | {
     type: 'recording';
@@ -124,92 +144,93 @@ export type ContractSplitAsset = {
 );
 
 export interface ContractSplit extends ContractExtractionIdentity {
-  source_key: string | null;
-  source_ordinal: number | null;
-  split_type: string | null;
-  asset_identifier: string | null;
-  rights_type: string | null;
-  revenue_type: string | null;
+  source_key: string;
+  source_ordinal: number;
+  split_type: string;
+  asset_identifier?: string;
+  rights_type: string;
+  revenue_type?: string;
   parties: ContractSplitParty[];
   assets: ContractSplitAsset[];
 }
 
 export interface ContractCost extends ContractExtractionIdentity {
-  rule_id: string | null;
-  title: string | null;
-  description: string | null;
-  recoupment_rate: number | string | null;
-  requires_approval: boolean | null;
-  cost_base: ContractRuleBase | null;
+  rule_id?: string;
+  title?: string;
+  description?: string;
+  recoupment_rate?: number;
+  requires_approval?: boolean;
+  cost_base?: ContractRuleBase;
 }
 
 export interface ContractCompensation extends ContractExtractionIdentity {
-  currency: string | null;
-  currency_estimated: boolean | null;
-  advances: unknown[] | null;
-  fixed_fees: unknown[] | null;
-  recurring_payment_type: string | null;
+  currency?: string;
+  currency_estimated?: boolean;
+  advances?: unknown;
+  fixed_fees?: unknown;
+  recurring_payment_type?: string;
 }
 
 export interface ContractDate extends ContractExtractionIdentity {
-  extracted_dates: unknown[] | null;
-  extracted_terms: unknown[] | null;
-  missing_dates: unknown[] | null;
-  calculated_end_dates: unknown[] | null;
-  calculated_end_date_formulas: unknown[] | null;
+  extracted_dates?: unknown;
+  extracted_terms?: unknown;
+  missing_dates?: unknown;
+  calculated_end_dates?: unknown;
+  calculated_end_date_formulas?: unknown;
   calculated_dates_initialized: boolean;
 }
 
 export interface ContractAccountingPeriod extends ContractExtractionIdentity {
-  accounting_period: string | null;
-  reporting_delay_value: number | null;
-  reporting_delay_unit: string | null;
-  payment_period_value: number | null;
-  payment_period_unit: string | null;
-  payout_threshold_value: number | string | null;
-  payout_threshold_currency: string | null;
-  cross_collateralizes: boolean | null;
-  audit_rights: boolean | null;
-  audit_rights_condition: string | null;
+  accounting_period?: string;
+  reporting_delay_value?: number;
+  reporting_delay_unit?: string;
+  payment_period_value?: number;
+  payment_period_unit?: string;
+  payout_threshold_value?: number;
+  payout_threshold_currency?: string;
+  cross_collateralizes?: boolean;
+  audit_rights?: boolean;
+  audit_rights_condition?: string;
 }
 
 export interface ContractTypeExtraction extends ContractExtractionIdentity {
-  type: string | null;
-  note: string | null;
+  type?: string;
+  note?: string;
 }
 
 export interface ContractLanguage extends ContractExtractionIdentity {
-  language: string | null;
+  language?: string;
 }
 
 export interface ContractSignature extends ContractExtractionIdentity {
-  effective_date: string | null;
-  name: string | null;
-  entity: string | null;
-  signed: boolean | null;
-  signing_date: string | null;
+  effective_date?: string;
+  name?: string;
+  entity?: string;
+  signed?: boolean;
+  signing_date?: string;
 }
 
 export interface ContractControlArea extends ContractExtractionIdentity {
-  rule_id: string | null;
-  description: string | null;
-  control_type: string | null;
-  exclusivity: string | null;
-  rights_type: unknown | null;
-  territories: unknown | null;
+  rule_id?: string;
+  description?: string;
+  control_type?: string;
+  assignment_share?: number;
+  exclusivity?: string;
+  rights_type?: unknown;
+  territories?: unknown;
 }
 
 export interface ContractCreativeApproval extends ContractExtractionIdentity {
-  approval_id: string | null;
-  title: string | null;
-  approval_party: string | null;
-  description: string | null;
+  approval_id?: string;
+  title?: string;
+  approval_party: 'assignor' | 'assignee' | 'both_parties';
+  description?: string;
 }
 
 export interface ContractBalance extends ContractExtractionIdentity {
-  title: string | null;
-  description: string | null;
-  reasoning: string | null;
+  title?: string;
+  description?: string;
+  reasoning?: string;
 }
 
 /** @deprecated Use ContractCitation. */
@@ -218,8 +239,8 @@ export type ContractCommitmentCitation = ContractCitation;
 export type ContractCommitmentLinkedAsset = {
   id: number;
   source?: string;
-  created_at: string | null;
-  updated_at: string | null;
+  created_at: string;
+  updated_at?: string;
 } & (
   | {
     type: 'recording';
@@ -238,11 +259,11 @@ export type ContractCommitmentLinkedAsset = {
 );
 
 export interface ContractCommitment extends ContractExtractionIdentity {
-  title: string | null;
-  type: string | null;
-  description: string | null;
-  recurring_unit: string | null;
-  recurring_quantity: string | null;
+  title?: string;
+  type?: string;
+  description?: string;
+  recurring_unit?: string;
+  recurring_quantity?: string;
   linked_deliverables: ContractCommitmentDeliverable[];
   linked_assets: ContractCommitmentLinkedAsset[];
 }
@@ -254,78 +275,88 @@ export interface ContractAssetIdentifier {
 }
 
 export interface ContractRecording extends ContractExtractionIdentity {
-  name: string | null;
-  duration_ms: number | null;
-  artists: unknown | null;
-  work_type: string | null;
-  creators: unknown | null;
+  name?: string;
+  duration_ms?: number;
+  artists?: unknown;
+  work_type?: string;
+  creators?: unknown;
   identifiers: ContractAssetIdentifier[];
-  source: string | null;
-  normalized: boolean | null;
-  normalized_data: unknown | null;
-  confidence: string | null;
-  notes: string | null;
-  contract_group_id: number | null;
+  source?: string;
+  normalized?: boolean;
+  normalized_data?: unknown;
+  confidence?: string;
+  notes?: string;
+  contract_group_id?: number;
 }
 
 export interface ContractComposition extends ContractExtractionIdentity {
-  name: string | null;
-  writers: unknown | null;
-  artists: unknown | null;
-  work_type: string | null;
-  creators: unknown | null;
+  name?: string;
+  writers?: unknown;
+  artists?: unknown;
+  work_type?: string;
+  creators?: unknown;
   identifiers: ContractAssetIdentifier[];
-  source: string | null;
-  normalized: boolean | null;
-  normalized_data: unknown | null;
-  linked_spotify: string;
-  linked_chartmetric: string;
-  linked_mlc: string | null;
-  confidence: string | null;
-  notes: string | null;
-  contract_group_id: number | null;
+  source?: string;
+  normalized?: boolean;
+  normalized_data?: unknown;
+  linked_spotify?: string;
+  linked_chartmetric?: string;
+  linked_mlc?: string;
+  confidence?: string;
+  notes?: string;
+  contract_group_id?: number;
 }
 
-export interface ContractRelation extends ContractExtractionIdentity {
-  name: string;
-  email: string | null;
-  phone: string | null;
-  department: string | null;
-  role: string | null;
-  entity_id: number | null;
+export interface ContractRelation {
+  name?: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  role: string;
+  crm_relation?: ContractCrmLink;
+  crm_entity?: ContractCrmLink;
+  created_at?: string;
+  updated_at?: string;
+  citations?: ContractCitation[];
 }
 
 export interface ContractTarget extends ContractExtractionIdentity {
-  composition_id: number | null;
-  recording_id: number | null;
-  album_id: string | null;
-  number_of_tracks: unknown | null;
-  sales_targets: unknown | null;
-  price_targets: unknown | null;
+  composition_id?: number;
+  recording_id?: number;
+  album_id?: string;
+  number_of_tracks?: unknown;
+  sales_targets?: unknown[];
+  price_targets?: unknown[];
 }
 
-export interface ContractExtractions {
-  entities?: ContractEntity[];
-  artists?: ContractArtist[];
-  writers?: ContractWriter[];
-  royalties?: ContractRoyalty[];
-  splits?: ContractSplit[];
-  costs?: ContractCost[];
-  compensations?: ContractCompensation[];
-  dates?: ContractDate[];
-  'accounting-periods'?: ContractAccountingPeriod[];
-  types?: ContractTypeExtraction[];
-  commitments?: ContractCommitment[];
-  languages?: ContractLanguage[];
-  signatures?: ContractSignature[];
-  'control-areas'?: ContractControlArea[];
-  'creative-approvals'?: ContractCreativeApproval[];
-  balances?: ContractBalance[];
-  recordings?: ContractRecording[];
-  compositions?: ContractComposition[];
-  relations?: ContractRelation[];
-  targets?: ContractTarget[];
+export interface ContractExtractionMap {
+  entities: ContractEntity;
+  artists: ContractArtist;
+  writers: ContractWriter;
+  royalties: ContractRoyalty;
+  splits: ContractSplit;
+  costs: ContractCost;
+  compensations: ContractCompensation;
+  dates: ContractDate;
+  'accounting-periods': ContractAccountingPeriod;
+  types: ContractTypeExtraction;
+  commitments: ContractCommitment;
+  languages: ContractLanguage;
+  signatures: ContractSignature;
+  'control-areas': ContractControlArea;
+  'creative-approvals': ContractCreativeApproval;
+  balances: ContractBalance;
+  recordings: ContractRecording;
+  compositions: ContractComposition;
+  relations: ContractRelation;
+  targets: ContractTarget;
 }
+
+export type ContractExtractionKey = keyof ContractExtractionMap;
+
+export type ContractExtractions = {
+  [K in ContractExtractionKey]?: ContractExtractionMap[K][];
+};
 
 export interface ResourceScore {
   summary: { score?: number; meanScore?: number; failed?: number; warned?: number } | null;
@@ -380,6 +411,13 @@ export interface ContractsListOptions {
 export interface ContractsGetOptions {
   includes?: string;
   score?: boolean;
+  citations?: boolean;
+  json?: boolean;
+}
+
+export interface ContractsExtractionsOptions {
+  page: string;
+  perPage: string;
   citations?: boolean;
   json?: boolean;
 }

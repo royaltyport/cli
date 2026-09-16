@@ -3,7 +3,7 @@ name: royaltyport-sandbox
 description: Access Royaltyport project data via the CLI sandbox. Use when working with music royalty contracts, entities, artists, writers, relations, recordings, compositions, or statements.
 metadata:
   author: royaltyport
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Skill: Royaltyport Sandbox
@@ -105,11 +105,15 @@ royaltyport contracts list <project_id> --includes commitments --citations --jso
 royaltyport contracts get <project_id> <contract_id>
 royaltyport contracts get <project_id> <contract_id> --includes commitments
 royaltyport contracts get <project_id> <contract_id> --includes commitments --citations --json
+royaltyport contracts extractions <project_id> <contract_id> recordings --page 2 --per-page 250
 ```
 
 Commitments expose extracted deliverables as `linked_deliverables` and
 automatically joined recording/composition links as `linked_assets`.
 Pass `--citations` to return supporting citations with extraction items.
+Contract includes remain arrays capped at 100 items. Use `contracts extractions`
+to page any include key independently; dedicated pages default to 100 and allow
+up to 250 items per page.
 
 ### Download a contract
 

@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
 import { apiGet, apiPost, apiPut, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
-import { parseContractIncludes, summarizeCommitmentRecurring, summarizeLinkedDeliverables } from '../lib/contracts.js';
+import { buildContractExtractionPath, parseContractExtractionKey, parseContractIncludes, summarizeCommitmentRecurring, summarizeContractExtractionItem, summarizeLinkedDeliverables } from '../lib/contracts.js';
 import { printTable, printError, printSuccess, printInfo, printJson } from '../lib/output.js';
 import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
 import { buildContractUploadContext } from '../lib/upload-context.js';
@@ -14,6 +14,7 @@ import type {
   ContractsStatusOptions,
   ContractsListOptions,
   ContractsGetOptions,
+  ContractsExtractionsOptions,
   ContractsUpdateOptions,
   ContractUpdateResult,
   ContractsDownloadOptions,
@@ -264,6 +265,59 @@ export function registerContractsCommand(program: Command): void {
             );
           }
         }
+      } catch (err) {
+        printError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  contracts
+    .command('extractions')
+    .description('Page through one extracted contract sub-resource')
+    .argument('<project_id>', 'Project ID (UUID)')
+    .argument('<contract_id>', 'Contract numeric ID or internal UUID')
+    .argument('<key>', 'Extraction key, such as recordings, compositions, or commitments')
+    .option('-p, --page <page>', 'Page number', '1')
+    .option('-n, --per-page <perPage>', 'Results per page (max 250)', '100')
+    .option('--citations', 'Return citations with extracted items')
+    .option('--json', 'Print the complete paginated payload as JSON')
+    .action(async (
+      projectId: string,
+      contractId: string,
+      key: string,
+      options: ContractsExtractionsOptions,
+    ) => {
+      try {
+        await requireAuth();
+        const extraction = parseContractExtractionKey(key);
+
+        const spinner = ora({ text: `Fetching ${extraction}...`, color: spinnerColor }).start();
+        const response = await apiGet(
+          buildContractExtractionPath(projectId, contractId, extraction, options),
+        ).finally(() => spinner.stop());
+
+        const result = response.data as PaginatedResult<Record<string, unknown>>;
+        if (options.json) {
+          printJson(result);
+          return;
+        }
+        if (result.items.length === 0) {
+          printInfo(`No ${extraction} found.`);
+          return;
+        }
+
+        printTable(
+          ['ID', 'Summary', 'Created'],
+          result.items.map(item => [
+            typeof item.id === 'number' || typeof item.id === 'string' ? item.id : '-',
+            summarizeContractExtractionItem(item),
+            typeof item.created_at === 'string'
+              ? new Date(item.created_at).toLocaleDateString()
+              : '-',
+          ]),
+        );
+        console.log();
+        printInfo(`Page ${result.page} of ${Math.ceil(result.total_count / result.per_page)} (${result.total_count} total)`);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
         process.exit(1);
