@@ -103,7 +103,7 @@ royaltyport contracts list <project_id> --page 2 --per-page 50
 royaltyport contracts list <project_id> --includes commitments
 royaltyport contracts list <project_id> --includes commitments --citations --json
 royaltyport contracts get <project_id> <contract_id>
-royaltyport contracts get <project_id> <contract_id> --includes commitments
+royaltyport contracts get <project_id> <contract_id> --includes compositions,recordings --json
 royaltyport contracts get <project_id> <contract_id> --includes commitments --citations --json
 royaltyport contracts extractions <project_id> <contract_id> recordings --page 2 --per-page 250
 ```
@@ -111,9 +111,13 @@ royaltyport contracts extractions <project_id> <contract_id> recordings --page 2
 Commitments expose extracted deliverables as `linked_deliverables` and
 automatically joined recording/composition links as `linked_assets`.
 Pass `--citations` to return supporting citations with extraction items.
-Contract includes remain arrays capped at 100 items. Use `contracts extractions`
-to page any include key independently; dedicated pages default to 100 and allow
-up to 250 items per page.
+Existing contract includes remain arrays capped at 100 items and have no
+pagination metadata. For a large or complete collection, use `contracts
+extractions` from page 1. It supports every extraction key, defaults to 100
+items per page, accepts up to 250, and returns `items`, `total_count`, `page`,
+and `per_page` with `--json`. Payment extractions use `compensations`. Only the
+top-level collection is paginated; nested arrays remain attached to each item
+and are not independently capped or paginated.
 
 ### Download a contract
 
