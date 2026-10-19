@@ -427,7 +427,8 @@ royaltyport contracts resolve PROJECT_ID STAGING_ID \
   --input-file split-input.json --json
 ```
 
-`split-input.json` contains the `input` object, not the full request body:
+`split-input.json` contains the `input` object, not the full request body.
+Split input accepts 1–128 agreements, with at least one selected for processing:
 
 ```json
 {

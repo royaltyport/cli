@@ -25,6 +25,11 @@ describe('document resolution', () => {
       await expect(buildResolution('contract', { ...options, action: 'approve_split', inputJson: JSON.stringify({ agreements: [{ ...agreement, ...changed }] }) })).rejects.toThrow();
     }
   });
+  it('accepts the API maximum of 128 agreements and rejects 129', async () => {
+    const agreements = Array.from({ length: 128 }, (_, index) => ({ title: `Agreement ${index + 1}`, start_page: index + 1, end_page: index + 1, process: true }));
+    await expect(buildResolution('contract', { ...options, action: 'approve_split', inputJson: JSON.stringify({ agreements }) })).resolves.toHaveProperty('action', 'approve_split');
+    await expect(buildResolution('contract', { ...options, action: 'approve_split', inputJson: JSON.stringify({ agreements: [...agreements, agreements[0]] }) })).rejects.toThrow('1–128');
+  });
   it.each(['contract', 'statement'] as const)('executes %s resolve with exact caller key and source pause', async kind => {
     const program = new Command(); registerDocumentResolutionCommand(program, kind);
     await program.parseAsync(['node', 'test', 'resolve', 'project-1', '42', '--pause-id', pauseId, '--action', 'retry', '--idempotency-key', 'stable-key', '--json']);

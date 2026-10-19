@@ -22,7 +22,7 @@ export async function buildResolution(kind: 'contract' | 'statement', options: R
     return { pause_id: options.pauseId, action: 'retry', input: {} };
   }
   if (options.action !== 'approve_split' || kind !== 'contract') throw new Error(kind === 'statement' ? 'Statements support only --action retry' : '--action must be retry or approve_split');
-  if (Object.keys(input).some(key => key !== 'agreements') || !('agreements' in input) || !Array.isArray(input.agreements) || input.agreements.length < 1 || input.agreements.length > 1000) throw new Error('approve_split requires input.agreements with 1–1000 items');
+  if (Object.keys(input).some(key => key !== 'agreements') || !('agreements' in input) || !Array.isArray(input.agreements) || input.agreements.length < 1 || input.agreements.length > 128) throw new Error('approve_split requires input.agreements with 1–128 items');
   const agreements = input.agreements.map((value: unknown) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Each agreement must be an object');
     const item = value as Record<string, unknown>;
