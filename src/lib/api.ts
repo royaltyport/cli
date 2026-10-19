@@ -137,12 +137,12 @@ export async function apiGet(path: string, token?: string): Promise<Record<strin
   return body;
 }
 
-export async function apiPost(path: string, data: unknown, token?: string): Promise<Record<string, unknown>> {
+export async function apiPost(path: string, data: unknown, token?: string, options?: { idempotencyKey: string }): Promise<Record<string, unknown>> {
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
-    headers: buildHeaders(resolvedToken),
+    headers: { ...buildHeaders(resolvedToken), ...(options ? { 'Idempotency-Key': options.idempotencyKey } : {}) },
     body: JSON.stringify(data),
   });
   const body = await parseResponse(res);

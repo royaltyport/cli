@@ -1,3 +1,4 @@
+import { registerDocumentResolutionCommand } from './document-resolution.js';
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
@@ -25,6 +26,8 @@ export function registerStatementsCommand(program: Command): void {
   const statements = program
     .command('statements')
     .description('Manage statements: upload, list, update, download, and track processing status');
+
+  registerDocumentResolutionCommand(statements, 'statement');
 
   statements
     .command('upload')
@@ -179,7 +182,8 @@ export function registerStatementsCommand(program: Command): void {
               terminalState = getProcessTerminalState(data, 'statement');
               if (terminalState) break;
               if (Date.now() >= deadline) throw new Error(`Timed out after ${options.timeout} seconds waiting for statement processing`);
-              await new Promise(r => setTimeout(r, 3000));
+              const pollSeconds = data.poll_after_seconds;
+              await new Promise(r => setTimeout(r, typeof pollSeconds === 'number' && pollSeconds > 0 ? pollSeconds * 1000 : 3000));
             }
           } finally {
             spinner.stop();

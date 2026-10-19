@@ -33,6 +33,12 @@ describe('api', () => {
     vi.restoreAllMocks();
   });
 
+  it('forwards the caller resolution key without changing authentication', async () => {
+    fetchSpy.mockResolvedValue(mockResponse({ data: { status: 'paused' } }));
+    await apiPost('/v1/contracts/staging/42/resolve?projectId=p', {}, 'local-token', { idempotencyKey: 'stable-key' });
+    expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer local-token', 'Idempotency-Key': 'stable-key' }) }));
+  });
+
   describe('apiGet', () => {
     it('sends GET request with correct URL and auth header', async () => {
       fetchSpy.mockResolvedValue(mockResponse({ data: { id: 1 } }));

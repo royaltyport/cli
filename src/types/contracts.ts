@@ -1,7 +1,10 @@
+import type { DocumentProcessingState } from './resolutions.js';
 import type { ProcessInfo } from './api.js';
 
 export interface Contract {
   id: number;
+  staging_id?: number | null;
+  extraction_stage?: string | null;
   internal_uuid?: string;
   file_name: string;
   file_type?: string;
@@ -363,7 +366,7 @@ export interface ResourceScore {
   triggered_rules: Array<{ rule_id: string; status: 'fail' | 'warn'; severity: string; message: string | null }>;
 }
 
-export interface ContractProcesses {
+export interface ContractProcesses extends DocumentProcessingState {
   staging_id: number;
   contract_id: number | null;
   staging_done: boolean;

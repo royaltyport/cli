@@ -398,3 +398,49 @@ Credentials and settings are stored at `~/.config/royaltyport/config.json` (mana
 ## License
 
 UNLICENSED
+
+
+### Resolve a paused document
+
+The document-resolution endpoints are additive and require the matching API update.
+Read processing status first and submit its current `pause.id` (or `pause_id`).
+Use one stable idempotency key per decision. If a request times out, retry the
+same key and payload; a different payload under that key returns HTTP 409.
+HTTP 202 means accepted for background dispatch; HTTP 200 can mean capacity
+is still full. Continue reading the stable `/processes` URL and use the
+source-wide `status`, `terminal`, and `poll_after_seconds` fields. A paused or
+unknown source is not a signal to poll forever. Existing retry methods remain
+available for older integrations.
+
+```bash
+royaltyport contracts resolve PROJECT_ID STAGING_ID \
+  --pause-id PAUSE_UUID --action retry \
+  --idempotency-key juniper-capacity-decision-1 --json
+
+royaltyport statements resolve PROJECT_ID STAGING_ID \
+  --pause-id PAUSE_UUID --action retry \
+  --idempotency-key juniper-statement-decision-1 --json
+
+royaltyport contracts resolve PROJECT_ID STAGING_ID \
+  --pause-id PAUSE_UUID --action approve_split \
+  --idempotency-key juniper-split-decision-1 \
+  --input-file split-input.json --json
+```
+
+`split-input.json` contains the `input` object, not the full request body:
+
+```json
+{
+  "agreements": [
+    { "title": "Recording agreement", "start_page": 1, "end_page": 4, "process": true },
+    { "title": "Publishing agreement", "start_page": 5, "end_page": 8, "process": true }
+  ]
+}
+```
+
+Alternatively pass that object with `--input-json`. Retry takes an empty object
+and needs neither input flag. `--json` includes response decision metadata.
+The command sends one request; after an ambiguous network failure, rerun the
+same command with the same key and payload. `status --watch` respects the
+source-wide completion state instead of stopping when only one split child
+has finished.

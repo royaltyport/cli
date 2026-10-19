@@ -8,6 +8,13 @@ export function getProcessTerminalState(
   data: ContractProcesses | StatementProcesses,
   resourceType: 'contract' | 'statement',
 ): ProcessTerminalState {
+  // New source-wide state is authoritative; legacy flags can describe one split child.
+  if (data.status !== undefined) {
+    if (data.status === 'paused') return 'action_required';
+    if (data.terminal) return ['failed', 'rejected', 'cancelled', 'timed_out'].includes(data.status) ? 'failed' : 'completed';
+    if (data.status === 'unknown') throw new Error(data.error?.message ?? 'Source completion cannot be verified; inspect this upload in the Platform');
+    return null;
+  }
   if (data.staging_processes.stage === 'failed') return 'failed';
   if (data.staging_processes.stage === 'rejected') return 'failed';
   if (data.staging_terminal && data.staging_processes.stage === 'paused') return 'action_required';
@@ -46,6 +53,9 @@ export function printProcessStatus(
 
   const statusEntries: [string, string | number | null | undefined][] = [
     ['Staging ID', data.staging_id],
+    ['Status', data.status],
+    ['Phase', data.phase],
+    ['Pause ID', data.pause?.id ?? data.pause_id],
     [
       isContract ? 'Contract ID' : 'Statement ID',
       isContract ? (data as ContractProcesses).contract_id : (data as StatementProcesses).statement_id,
@@ -63,6 +73,10 @@ export function printProcessStatus(
 
   console.log();
   printStatusLine(statusEntries);
+
+  if (data.status === 'paused' && projectId && (data.pause?.id ?? data.pause_id)) {
+    printInfo(`Resolve this pause with royaltyport ${isContract ? 'contracts' : 'statements'} resolve --help; reuse one stable idempotency key for each decision.`);
+  }
 
   if (data.requires_action && projectId) {
     console.log();

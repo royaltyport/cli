@@ -85,3 +85,24 @@ describe('getProcessTerminalState', () => {
     expect(getProcessTerminalState(data, 'contract')).toBe('action_required');
   });
 });
+
+
+describe('source-wide status precedence', () => {
+  const data: ContractProcesses = {
+    staging_id: 1, contract_id: 2, staging_done: true, extraction_done: true,
+    staging_terminal: true, requires_action: false, available_actions: [], pause_reason: null,
+    staging_processes: processInfo('completed'), extraction_processes: { stage: 'completed', extractions: [] },
+  };
+  it('keeps watching while another split sibling is processing', () => {
+    expect(getProcessTerminalState({ ...data, status: 'processing', terminal: false }, 'contract')).toBeNull();
+  });
+  it('stops at an unsupported pause without relying on old staging_terminal', () => {
+    expect(getProcessTerminalState({ ...data, status: 'paused', terminal: false, staging_terminal: false }, 'contract')).toBe('action_required');
+  });
+  it('reports failed source even if the legacy first child succeeded', () => {
+    expect(getProcessTerminalState({ ...data, status: 'failed', terminal: true }, 'contract')).toBe('failed');
+  });
+  it('fails clearly instead of polling an unverified legacy split forever', () => {
+    expect(() => getProcessTerminalState({ ...data, status: 'unknown', terminal: false }, 'contract')).toThrow('cannot be verified');
+  });
+});

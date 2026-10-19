@@ -84,3 +84,5 @@ export type {
 export type { TagScope } from '../lib/tags.js';
 export type { LoginOptions } from './login.js';
 export type { KnowledgeSearchOptions, KnowledgeSearchNode, KnowledgeSearchResult } from './knowledge.js';
+
+export type { DocumentProcessingState, ResolutionOptions, RetryStagingResolution, SplitAgreement, ApproveSplitResolution, ContractStagingResolution } from './resolutions.js';

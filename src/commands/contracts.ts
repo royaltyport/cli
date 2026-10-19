@@ -1,3 +1,4 @@
+import { registerDocumentResolutionCommand } from './document-resolution.js';
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
@@ -29,6 +30,8 @@ export function registerContractsCommand(program: Command): void {
   const contracts = program
     .command('contracts')
     .description('Manage contracts: upload, list, retrieve, update, download, and track processing status');
+
+  registerDocumentResolutionCommand(contracts, 'contract');
 
   contracts
     .command('upload')
@@ -183,7 +186,8 @@ export function registerContractsCommand(program: Command): void {
               terminalState = getProcessTerminalState(data, 'contract');
               if (terminalState) break;
               if (Date.now() >= deadline) throw new Error(`Timed out after ${options.timeout} seconds waiting for contract processing`);
-              await new Promise(r => setTimeout(r, 3000));
+              const pollSeconds = data.poll_after_seconds;
+              await new Promise(r => setTimeout(r, typeof pollSeconds === 'number' && pollSeconds > 0 ? pollSeconds * 1000 : 3000));
             }
           } finally {
             spinner.stop();
