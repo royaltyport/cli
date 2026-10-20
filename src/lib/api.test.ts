@@ -220,6 +220,7 @@ describe('api', () => {
       expect(init.method).toBe('PUT');
       const headers = init.headers as Record<string, string>;
       expect(headers['Authorization']).toBeUndefined();
+      expect(headers['Royaltyport-Version']).toBeUndefined();
       expect(headers['content-type']).toBe('application/pdf');
       expect(headers['x-upsert']).toBe('true');
       expect(init.body).toBe(bytes);
@@ -281,10 +282,13 @@ describe('api', () => {
       const [putUrl, putInit] = fetchSpy.mock.calls[1] as [string, RequestInit];
       expect(putUrl).toBe(SIGNED_URL);
       expect((putInit.headers as Record<string, string>)['Authorization']).toBeUndefined();
+      expect(new Headers(putInit.headers).has('Royaltyport-Version')).toBe(false);
+      expect(new Headers(mintInit.headers).get('Royaltyport-Version')).toBe('2026-10-20.birch');
 
       const [completeUrl, completeInit] = fetchSpy.mock.calls[2] as [string, RequestInit];
       expect(completeUrl).toBe('https://api.example.com/v1/statements/uploads/complete?projectId=proj-1');
       expect(JSON.parse(completeInit.body as string)).toEqual({ stagingId: 123 });
+      expect(new Headers(completeInit.headers).get('Royaltyport-Version')).toBe('2026-10-20.birch');
 
       expect(result).toEqual({
         staging_id: 123,
@@ -320,7 +324,8 @@ describe('api', () => {
         .mockResolvedValueOnce(mockResponse({
           data: {
             staging_id: 123,
-            status: 'queued',
+            status: 'uploaded',
+            processing_status: 'queued',
             context_applied: true,
             snapshot_hash: 'a'.repeat(64),
             enqueued: 1,
@@ -354,7 +359,8 @@ describe('api', () => {
       });
       expect(result).toEqual({
         staging_id: 123,
-        status: 'queued',
+        status: 'uploaded',
+        processing_status: 'queued',
         file_path: 'proj/statements_staging/9',
         context_applied: true,
         snapshot_hash: 'a'.repeat(64),
