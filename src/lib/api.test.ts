@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { apiGet, apiPost, apiPostRetry, apiPut, apiPutExternal, apiUploadFlow, requireAuth, ApiError, MAX_FILE_SIZE } from './api.js';
 
 vi.mock('./config.js', () => ({
+  getApiVersion: vi.fn(() => '2026-10-20.birch'),
   getToken: vi.fn(() => 'test-token'),
   getApiUrl: vi.fn(() => 'https://api.example.com'),
   getAuthMethod: vi.fn(() => 'token'),
@@ -18,7 +19,7 @@ vi.mock('./oauth.js', () => ({
 function mockResponse(body: unknown, init: { status?: number } = {}) {
   return new Response(JSON.stringify(body), {
     status: init.status ?? 200,
-    headers: new Headers(),
+    headers: new Headers({ 'Royaltyport-Version': '2026-10-20.birch' }),
   });
 }
 
@@ -31,6 +32,18 @@ describe('api', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('sends the package release on API requests', async () => {
+    fetchSpy.mockResolvedValue(mockResponse({ data: {} }));
+    await apiGet('/v1/projects', 'token');
+    expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: expect.objectContaining({ 'Royaltyport-Version': '2026-10-20.birch' }) }));
+  });
+
+  it('rejects mismatched successful responses', async () => {
+    fetchSpy.mockResolvedValue(new Response('{"data":{}}', { headers: { 'Royaltyport-Version': '2026-10-19.aster' } }));
+    await expect(apiGet('/v1/projects', 'token')).rejects.toThrow('Expected API release');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it('forwards the caller resolution key without changing authentication', async () => {

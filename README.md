@@ -445,3 +445,26 @@ The command sends one request; after an ambiguous network failure, rerun the
 same command with the same key and payload. `status --watch` respects the
 source-wide completion state instead of stopping when only one split child
 has finished.
+
+## API release selection
+
+This local candidate pins `2026-10-20.birch`. This is separate from the CLI
+package version (`--version`) and the HTTP path prefix (`/v1`). Select an exact
+release with `--api-version`, then `ROYALTYPORT_API_VERSION`, then the saved
+profile setting, in that precedence. There is no moving `latest` alias.
+
+```bash
+royaltyport --api-version 2026-10-19.aster contracts status PROJECT_ID STAGING_ID --json
+royaltyport --api-version 2026-10-20.birch contracts status PROJECT_ID STAGING_ID --json
+royaltyport api-version
+royaltyport api-version 2026-10-20.birch
+```
+
+A command pins its release before authentication and retains it through token
+refresh, polling and retries. API responses must confirm that pin in
+`Royaltyport-Version`; signed Storage requests do not receive API credentials
+or version headers. JSON stdout remains the API envelope. Admission resolution
+is a Birch capability; Aster selection rejects that command before a request.
+Older installed CLIs without a version header remain on the server's Aster
+fallback. This candidate is unpublished; coordinate the CLI package release
+separately from activating an API release.
