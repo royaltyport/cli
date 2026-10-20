@@ -446,9 +446,9 @@ export function registerContractsCommand(program: Command): void {
         } finally {
           spinner.stop();
         }
-        const result = response.data as { status: string; current_count?: number; limit?: number };
+        const result = response.data as { status: string; usage_meter?: number; usage_limit?: number };
         printSuccess(`Contract staging upload is ${result.status}.`);
-        if (result.status === 'paused') printInfo(`Capacity is still full (${result.current_count ?? '?'}/${result.limit ?? '?'}).`);
+        if (result.status === 'paused') printInfo(`Capacity is still full (${result.usage_meter ?? '?'}/${result.usage_limit ?? '?'}).`);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
         process.exit(1);
