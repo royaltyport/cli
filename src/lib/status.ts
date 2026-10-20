@@ -17,7 +17,7 @@ export function getProcessTerminalState(
   }
   if (data.staging_processes.stage === 'failed') return 'failed';
   if (data.staging_processes.stage === 'rejected') return 'failed';
-  if (data.staging_terminal && data.staging_processes.stage === 'paused') return 'action_required';
+  if (data.staging_processes.stage === 'paused') return 'action_required';
 
   if (resourceType === 'contract') {
     const contract = data as ContractProcesses;
@@ -74,15 +74,13 @@ export function printProcessStatus(
   console.log();
   printStatusLine(statusEntries);
 
-  if (data.status === 'paused' && projectId && (data.pause?.id ?? data.pause_id)) {
-    printInfo(`Resolve this pause with royaltyport ${isContract ? 'contracts' : 'statements'} resolve --help; reuse one stable idempotency key for each decision.`);
-  }
-
-  if (data.requires_action && projectId) {
-    console.log();
-    printInfo('This upload is paused and requires action:');
-    if (data.available_actions.includes('retry')) {
-      printInfo(`  royaltyport ${isContract ? 'contracts' : 'statements'} retry ${projectId} ${data.staging_id}`);
+  if (data.status === 'paused') {
+    const actions = data.pause?.actions ?? [];
+    if (actions.length > 0) {
+      printInfo(`Available pause actions: ${actions.map(action => action.type).join(', ')}.`);
+      if (projectId && data.pause?.id) printInfo(`Resolve this pause with royaltyport ${isContract ? 'contracts' : 'statements'} resolve --help; reuse one stable idempotency key for each decision.`);
+    } else {
+      printInfo('Processing is paused; no API resolution is advertised. Inspect this upload in the Platform.');
     }
   }
 

@@ -371,9 +371,6 @@ export interface ContractProcesses extends DocumentProcessingState {
   contract_id: number | null;
   staging_done: boolean;
   extraction_done: boolean;
-  staging_terminal: boolean;
-  requires_action: boolean;
-  available_actions: Array<'retry'>;
   pause_reason: string | null;
   staging_processes: ProcessInfo;
   extraction_processes: {
