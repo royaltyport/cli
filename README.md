@@ -454,8 +454,8 @@ release with `--api-version`, then `ROYALTYPORT_API_VERSION`, then the saved
 profile setting, in that precedence. There is no moving `latest` alias.
 
 ```bash
-royaltyport --api-version 2026-10-19.aster contracts status PROJECT_ID STAGING_ID --json
-royaltyport --api-version 2026-10-20.birch contracts status PROJECT_ID STAGING_ID --json
+royaltyport --api-version 2026-10-19.aster contracts status PROJECT_ID STAGING_ID
+royaltyport --api-version 2026-10-20.birch contracts status PROJECT_ID STAGING_ID
 royaltyport api-version
 royaltyport api-version 2026-10-20.birch
 ```
@@ -463,7 +463,7 @@ royaltyport api-version 2026-10-20.birch
 A command pins its release before authentication and retains it through token
 refresh, polling and retries. API responses must confirm that pin in
 `Royaltyport-Version`; signed Storage requests do not receive API credentials
-or version headers. JSON stdout remains the API envelope. Admission resolution
+or version headers. JSON stdout remains machine-readable with each command’s existing output shape. Admission resolution
 is a Birch capability; Aster selection rejects that command before a request.
 Older installed CLIs without a version header remain on the server's Aster
 fallback. This candidate is unpublished; coordinate the CLI package release
