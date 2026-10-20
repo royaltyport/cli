@@ -14,7 +14,6 @@ export interface StatementProcesses extends DocumentProcessingState {
   statement_id: number | null;
   staging_done: boolean;
   extraction_done: boolean;
-  pause_reason: string | null;
   staging_processes: ProcessInfo;
   extraction_processes: {
     stage: string;

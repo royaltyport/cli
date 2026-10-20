@@ -5,7 +5,6 @@ export interface DocumentProcessingState {
   terminal?: boolean;
   poll_after_seconds?: number | null;
   upload_status?: string | null;
-  pause_id?: string | null;
   pause?: { id?: string; type?: 'document_limit' | 'split_required' | 'unknown'; code: string; message: string; details: Record<string, unknown>; actions?: Array<{ type: 'retry' | 'approve_split'; method: 'POST'; href: string }>; [key: string]: unknown } | null;
   resources?: Array<{ type: 'contract' | 'statement'; id: number; href: string }>;
   error?: { code: string; message: string } | null;

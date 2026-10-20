@@ -55,14 +55,14 @@ export function printProcessStatus(
     ['Staging ID', data.staging_id],
     ['Status', data.status],
     ['Phase', data.phase],
-    ['Pause ID', data.pause?.id ?? data.pause_id],
+    ['Pause ID', data.pause?.id],
     [
       isContract ? 'Contract ID' : 'Statement ID',
       isContract ? (data as ContractProcesses).contract_id : (data as StatementProcesses).statement_id,
     ],
     ['Staging', formatStatus(data.staging_processes.stage)],
     ['Staging Done', data.staging_done ? brand('yes') : dim('no')],
-    ['Pause Reason', data.pause_reason],
+    ['Pause Reason', data.pause?.code],
   ];
 
   if (isContract) {

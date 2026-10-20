@@ -11,7 +11,6 @@ describe('getProcessTerminalState', () => {
       statement_id: null,
       staging_done: true,
       extraction_done: false,
-      pause_reason: null,
       staging_processes: processInfo('failed'),
       extraction_processes: null,
     };
@@ -24,7 +23,6 @@ describe('getProcessTerminalState', () => {
       contract_id: 2,
       staging_done: true,
       extraction_done: false,
-      pause_reason: null,
       staging_processes: processInfo('completed'),
       extraction_processes: { stage: 'failed', extractions: [] },
     };
@@ -37,7 +35,6 @@ describe('getProcessTerminalState', () => {
       statement_id: 2,
       staging_done: true,
       extraction_done: true,
-      pause_reason: null,
       staging_processes: processInfo('completed'),
       extraction_processes: { stage: 'failed', step: 2, remarks: {} },
     };
@@ -50,7 +47,6 @@ describe('getProcessTerminalState', () => {
       contract_id: 2,
       staging_done: true,
       extraction_done: true,
-      pause_reason: null,
       staging_processes: processInfo('completed'),
       extraction_processes: { stage: 'completed', extractions: [] },
     };
@@ -63,7 +59,6 @@ describe('getProcessTerminalState', () => {
       contract_id: null,
       staging_done: false,
       extraction_done: false,
-      pause_reason: 'contract-document-split',
       staging_processes: processInfo('paused'),
       extraction_processes: null,
     };
@@ -75,7 +70,6 @@ describe('getProcessTerminalState', () => {
 describe('source-wide status precedence', () => {
   const data: ContractProcesses = {
     staging_id: 1, contract_id: 2, staging_done: true, extraction_done: true,
-    pause_reason: null,
     staging_processes: processInfo('completed'), extraction_processes: { stage: 'completed', extractions: [] },
   };
   it('keeps watching while another split sibling is processing', () => {
@@ -95,8 +89,7 @@ describe('source-wide status precedence', () => {
 
 describe('pause action display', () => {
   const data: ContractProcesses = {
-    staging_id: 1, contract_id: null, staging_done: false, extraction_done: false,
-    pause_reason: 'contract-document-split', staging_processes: processInfo('paused'),
+    staging_id: 1, contract_id: null, staging_done: false, extraction_done: false, staging_processes: processInfo('paused'),
     extraction_processes: null, status: 'paused', terminal: false,
   };
   it('advertises split resolution from pause.actions without retired fields', () => {
