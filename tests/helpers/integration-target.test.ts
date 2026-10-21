@@ -18,8 +18,13 @@ describe('integration target boundary',()=>{
     await request(env.ROYALTYPORT_TEST_BASE_URL+'/v1/projects',{headers:{authorization:'Bearer synthetic-key'}});
     expect(new Headers(fetchMock.mock.calls[0][1].headers).get('x-vercel-protection-bypass')).toBe('synthetic-bypass');
     expect(fetchMock.mock.calls[0][1].redirect).toBe('error');
-    await request('https://fixture.supabase.co/storage/file',{headers:{authorization:'must-not-leak','Royaltyport-Version':'must-not-leak','x-vercel-protection-bypass':'must-not-leak'}});
+    await request('https://fixture.supabase.co/storage/file',{headers:{authorization:'Bearer storage-upload-capability'}});
     const headers=new Headers(fetchMock.mock.calls[1][1].headers);
-    for(const key of ['authorization','royaltyport-version','x-vercel-protection-bypass'])expect(headers.has(key)).toBe(false);
+    expect(headers.get('authorization')).toBe('Bearer storage-upload-capability');
+    expect(headers.has('x-vercel-protection-bypass')).toBe(false);
+    expect(headers.has('royaltyport-version')).toBe(false);
+    await expect(request('https://fixture.supabase.co/storage/file',{headers:{authorization:'Bearer synthetic-key'}})).rejects.toThrow('API credentials');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
   });
 });

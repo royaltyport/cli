@@ -22,7 +22,7 @@ export function createIntegrationFetch(target: ReturnType<typeof readIntegration
       if (target.bypass) headers.set('x-vercel-protection-bypass',target.bypass);
       return request(input,{...init,headers,redirect:'error'});
     }
-    for (const key of ['authorization','royaltyport-version','x-vercel-protection-bypass']) headers.delete(key);
+    if (headers.has('x-vercel-protection-bypass') || headers.has('royaltyport-version') || headers.get('authorization')?.includes(target.apiKey)) throw new Error('API credentials must not be sent to a file-transfer origin.');
     return request(input,{...init,headers});
   };
 }
