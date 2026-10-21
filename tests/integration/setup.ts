@@ -1,20 +1,11 @@
 import { apiGet, apiPost, apiUploadFlow, apiDownloadFile } from '../../src/lib/api.js';
 import type { UploadFlowInput, UploadFlowOptions } from '../../src/types/index.js';
 
-const TOKEN = process.env.ROYALTYPORT_TEST_API_KEY;
-const BASE_URL = process.env.ROYALTYPORT_TEST_BASE_URL ?? 'https://api.royaltyport.com';
-
-if (!TOKEN) {
-  throw new Error(
-    'ROYALTYPORT_TEST_API_KEY is required for integration tests. ' +
-    'Run with: ROYALTYPORT_TEST_API_KEY=rp_... npx vitest run --project integration',
-  );
-}
-
-// Override the API URL for tests
-process.env.ROYALTYPORT_API_URL = BASE_URL;
-
-export const PROJECT_ID = process.env.ROYALTYPORT_TEST_PROJECT_ID ?? 'acd058d0-3058-488d-bafd-88c1a03aebc6';
+import {readIntegrationTarget} from '../helpers/integration-target.js';
+const target = readIntegrationTarget(process.env);
+export const BASE_URL = target.baseUrl;
+export const PROJECT_ID = target.projectId;
+const TOKEN = target.apiKey;
 
 // Pre-bound helpers that pass the test token
 export async function get(path: string) {

@@ -1,3 +1,4 @@
+import {readIntegrationTarget,createIntegrationFetch} from '../helpers/integration-target.js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -19,3 +20,7 @@ try {
 } catch {
   // .env.local not found -- env vars must be set externally
 }
+
+const target = readIntegrationTarget(process.env);
+process.env.ROYALTYPORT_API_URL = target.baseUrl;
+globalThis.fetch = createIntegrationFetch(target,globalThis.fetch.bind(globalThis));
