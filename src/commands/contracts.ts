@@ -175,7 +175,9 @@ export function registerContractsCommand(program: Command): void {
             while (true) {
               data = await fetchStatus();
 
-              if (!data.staging_done) {
+              if (data.status !== undefined) {
+                spinner.text = `${data.phase}: ${data.status} (${data.document_processes?.length ?? 0} documents)`;
+              } else if (!data.staging_done) {
                 spinner.text = `Staging: ${data.staging_processes.stage}...`;
               } else if (!data.extraction_done) {
                 const exts = data.extraction_processes?.extractions || [];

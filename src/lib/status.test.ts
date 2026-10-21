@@ -109,3 +109,18 @@ describe('pause action display', () => {
     } finally { log.mockRestore(); }
   });
 });
+
+
+it('prints each Birch document without legacy completion labels', () => {
+  const log = vi.spyOn(console,'log').mockImplementation(() => {});
+  try {
+    printProcessStatus({ staging_id: 1, status: 'processing', phase: 'extraction', terminal: false,
+      staging_processes: processInfo('completed'), document_processes: [
+        { id: 7, stage: 'completed', extractions: [{ name: 'entities',status:'completed',completed_at:null }] },
+        { id: 8, stage: 'processing', extractions: [{ name: 'entities',status:'processing',completed_at:null }] },
+      ] } as ContractProcesses,{resourceType:'contract'});
+    const output = log.mock.calls.flat().join(' ');
+    expect(output).toContain('Contract 7'); expect(output).toContain('Contract 8');
+    expect(output).not.toContain('Staging Done'); expect(output).not.toContain('Extraction Done');
+  } finally { log.mockRestore(); }
+});

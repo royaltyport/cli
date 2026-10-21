@@ -41,7 +41,7 @@ describe('api', () => {
   });
 
   it('rejects mismatched successful responses', async () => {
-    fetchSpy.mockResolvedValue(new Response('{"data":{}}', { headers: { 'Royaltyport-Version': '2026-10-19.aster' } }));
+    fetchSpy.mockResolvedValue(new Response('{"data":{}}', { headers: { 'Royaltyport-Version': '2026-04-20.aster' } }));
     await expect(apiGet('/v1/projects', 'token')).rejects.toThrow('Expected API release');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });

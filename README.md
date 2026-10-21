@@ -454,7 +454,7 @@ release with `--api-version`, then `ROYALTYPORT_API_VERSION`, then the saved
 profile setting, in that precedence. There is no moving `latest` alias.
 
 ```bash
-royaltyport --api-version 2026-10-19.aster contracts status PROJECT_ID STAGING_ID
+royaltyport --api-version 2026-04-20.aster contracts status PROJECT_ID STAGING_ID
 royaltyport --api-version 2026-10-20.birch contracts status PROJECT_ID STAGING_ID
 royaltyport api-version
 royaltyport api-version 2026-10-20.birch
@@ -468,3 +468,13 @@ is a Birch capability; Aster selection rejects that command before a request.
 Older installed CLIs without a version header remain on the server's Aster
 fallback. This candidate is unpublished; coordinate the CLI package release
 separately from activating an API release.
+
+
+### Birch processing responses
+
+Birch uses `status` and source-wide `terminal`, `resources[]`, per-document
+`document_processes[]`, and `pause.actions`. The CLI displays each resulting
+document's progress. The old `retry` command is Aster-only; on Birch use `resolve`
+with the current pause UUID and an idempotency key. An old frozen acceptance
+response can return `resolution_response_contract_changed`; poll its existing
+status URL instead of creating another decision.

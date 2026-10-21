@@ -8,9 +8,9 @@ export interface DocumentProcessingState {
   pause?: { id?: string; type?: 'document_limit' | 'split_required' | 'unknown'; code: string; message: string; details: Record<string, unknown>; actions?: Array<{ type: 'retry' | 'approve_split'; method: 'POST'; href: string }>; [key: string]: unknown } | null;
   resources?: Array<{ type: 'contract' | 'statement'; id: number; href: string }>;
   error?: { code: string; message: string } | null;
-  links?: { self: string; retry?: string | null; resolve?: string | null };
-  split_manifest?: { decision_id: string; expected_count: number; materialized_count: number; promoted_count: number; source: unknown; children: unknown[] } | null;
-  document_processes?: Array<{ id: number; stage: string | null }>;
+  links?: { self: string; resolve?: string | null };
+  split_manifest?: { decision_id: string; expected_count: number; materialized_count: number; promoted_count: number } | null;
+  document_processes?: Array<{ id: number; stage: string | null; extractions?: Array<{ name: string; status: string | null; completed_at: string | null }>; step?: number; remarks?: Record<string, unknown> }>;
 }
 
 export interface ResolutionOptions {

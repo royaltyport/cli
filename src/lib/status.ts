@@ -50,6 +50,22 @@ export function printProcessStatus(
   { resourceType, projectId }: { resourceType: string; projectId?: string },
 ): void {
   const isContract = resourceType === 'contract';
+  if (data.status !== undefined) {
+    printStatusLine([['Staging ID',data.staging_id],['Status',data.status],['Phase',data.phase],['Terminal',data.terminal ? 'yes' : 'no'],['Pause ID',data.pause?.id],['Pause Reason',data.pause?.code]]);
+    if (data.status === 'paused') {
+      const actions = data.pause?.actions ?? [];
+      if (actions.length) {
+        printInfo(`Available pause actions: ${actions.map(action => action.type).join(', ')}.`);
+        if (projectId && data.pause?.id) printInfo(`Resolve this pause with royaltyport ${isContract ? 'contracts' : 'statements'} resolve --help; reuse one stable idempotency key for each decision.`);
+      } else printInfo('Processing is paused; no API resolution is advertised. Inspect this upload in the Platform.');
+    }
+    for (const document of data.document_processes ?? []) {
+      console.log(`${isContract ? 'Contract' : 'Statement'} ${document.id}: ${formatStatus(document.stage ?? 'queued')}`);
+      if (document.extractions?.length) printTable(['Extraction','Status','Completed At'],document.extractions.map(step => [step.name,formatStatus(step.status ?? 'pending'),step.completed_at ?? '-']));
+      if (!isContract) printStatusLine([['Step',document.step],['Remarks',JSON.stringify(document.remarks ?? {})]]);
+    }
+    return;
+  }
 
   const statusEntries: [string, string | number | null | undefined][] = [
     ['Staging ID', data.staging_id],
