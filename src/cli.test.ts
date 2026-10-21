@@ -48,3 +48,15 @@ describe('CLI update and tag commands', () => {
     expect(child(tags, 'update').usage()).toContain('<project_id> <scope> <resource_id>');
   });
 });
+
+
+it('registers durable resolution in both real document command groups', () => {
+  for (const name of ['contracts', 'statements']) {
+    const resolve = child(child(program, name), 'resolve');
+    expect(resolve.usage()).toContain('<project_id> <staging_id>');
+    expect(optionNames(resolve)).toEqual(expect.arrayContaining(['--pause-id', '--action', '--idempotency-key', '--input-json', '--input-file', '--json']));
+    for (const flag of ['--pause-id', '--action', '--idempotency-key']) {
+      expect(resolve.options.find(option => option.long === flag)?.mandatory).toBe(true);
+    }
+  }
+});

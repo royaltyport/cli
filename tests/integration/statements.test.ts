@@ -39,7 +39,11 @@ describe('Statements (integration)', () => {
 
       expect(data).toHaveProperty('staging_id');
       expect(data.staging_id).toBe(uploadedStagingId);
-      expect(data).toHaveProperty('staging_done');
+      expect(typeof data.status).toBe('string');
+      expect(typeof data.terminal).toBe('boolean');
+      expect(Array.isArray(data.resources)).toBe(true);
+      expect(Array.isArray(data.document_processes)).toBe(true);
+      for (const field of ['contract_id','statement_id','staging_done','extraction_done','extraction_processes']) expect(data).not.toHaveProperty(field);
       expect(data).toHaveProperty('staging_processes');
       expect(typeof data.staging_processes.stage).toBe('string');
     });

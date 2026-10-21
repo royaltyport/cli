@@ -1,3 +1,4 @@
+import { registerDocumentResolutionCommand } from './document-resolution.js';
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
@@ -25,6 +26,8 @@ export function registerStatementsCommand(program: Command): void {
   const statements = program
     .command('statements')
     .description('Manage statements: upload, list, update, download, and track processing status');
+
+  registerDocumentResolutionCommand(statements, 'statement');
 
   statements
     .command('upload')
@@ -170,7 +173,9 @@ export function registerStatementsCommand(program: Command): void {
             while (true) {
               data = await fetchStatus();
 
-              if (!data.staging_done) {
+              if (data.status !== undefined) {
+                spinner.text = `${data.phase}: ${data.status} (${data.document_processes?.length ?? 0} documents)`;
+              } else if (!data.staging_done) {
                 spinner.text = `Staging: ${data.staging_processes.stage}...`;
               } else if (!data.extraction_done) {
                 spinner.text = 'Processing statement...';
@@ -179,7 +184,8 @@ export function registerStatementsCommand(program: Command): void {
               terminalState = getProcessTerminalState(data, 'statement');
               if (terminalState) break;
               if (Date.now() >= deadline) throw new Error(`Timed out after ${options.timeout} seconds waiting for statement processing`);
-              await new Promise(r => setTimeout(r, 3000));
+              const pollSeconds = data.poll_after_seconds;
+              await new Promise(r => setTimeout(r, typeof pollSeconds === 'number' && pollSeconds > 0 ? pollSeconds * 1000 : 3000));
             }
           } finally {
             spinner.stop();
@@ -306,9 +312,9 @@ export function registerStatementsCommand(program: Command): void {
         } finally {
           spinner.stop();
         }
-        const result = response.data as { status: string; current_count?: number; limit?: number };
+        const result = response.data as { status: string; usage_meter?: number; usage_limit?: number; current_count?: number; limit?: number };
         printSuccess(`Statement staging upload is ${result.status}.`);
-        if (result.status === 'paused') printInfo(`Capacity is still full (${result.current_count ?? '?'}/${result.limit ?? '?'}).`);
+        if (result.status === 'paused') printInfo(`Capacity is still full (${result.usage_meter ?? result.current_count ?? '?'}/${result.usage_limit ?? result.limit ?? '?'}).`);
       } catch (err) {
         printError(err instanceof Error ? err.message : String(err));
         process.exit(1);

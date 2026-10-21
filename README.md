@@ -398,3 +398,94 @@ Credentials and settings are stored at `~/.config/royaltyport/config.json` (mana
 ## License
 
 UNLICENSED
+
+
+### Resolve a paused document
+
+The document-resolution endpoints are additive and require the matching API update.
+Read processing status first and submit its current `pause.id` (or `pause_id`).
+Use one stable idempotency key per decision. If a request times out, retry the
+same key and payload; a different payload under that key returns HTTP 409.
+HTTP 202 means accepted for background dispatch; HTTP 200 can mean capacity
+is still full. Continue reading the stable `/processes` URL and use the
+source-wide `status`, `terminal`, and `poll_after_seconds` fields. A paused or
+unknown source is not a signal to poll forever. Existing retry methods remain
+available for older integrations.
+
+```bash
+royaltyport contracts resolve PROJECT_ID STAGING_ID \
+  --pause-id PAUSE_UUID --action retry \
+  --idempotency-key juniper-capacity-decision-1 --json
+
+royaltyport statements resolve PROJECT_ID STAGING_ID \
+  --pause-id PAUSE_UUID --action retry \
+  --idempotency-key juniper-statement-decision-1 --json
+
+royaltyport contracts resolve PROJECT_ID STAGING_ID \
+  --pause-id PAUSE_UUID --action approve_split \
+  --idempotency-key juniper-split-decision-1 \
+  --input-file split-input.json --json
+```
+
+`split-input.json` contains the `input` object, not the full request body.
+Split input accepts 1–128 agreements, with at least one selected for processing:
+
+```json
+{
+  "agreements": [
+    { "title": "Recording agreement", "start_page": 1, "end_page": 4, "process": true },
+    { "title": "Publishing agreement", "start_page": 5, "end_page": 8, "process": true }
+  ]
+}
+```
+
+Alternatively pass that object with `--input-json`. Retry takes an empty object
+and needs neither input flag. `--json` includes response decision metadata.
+The command sends one request; after an ambiguous network failure, rerun the
+same command with the same key and payload. `status --watch` respects the
+source-wide completion state instead of stopping when only one split child
+has finished.
+
+## API release selection
+
+CLI 1.0 defaults to `2026-10-20.birch`. This is separate from the CLI
+package version (`--version`) and the HTTP path prefix (`/v1`). Select an exact
+release with `--api-version`, then `ROYALTYPORT_API_VERSION`, then the saved
+profile setting, in that precedence. There is no moving `latest` alias.
+
+```bash
+royaltyport --api-version 2026-04-20.aster contracts status PROJECT_ID STAGING_ID
+royaltyport --api-version 2026-10-20.birch contracts status PROJECT_ID STAGING_ID
+royaltyport api-version
+royaltyport api-version 2026-10-20.birch
+```
+
+A command pins its release before authentication and retains it through token
+refresh, polling and retries. API responses must confirm that pin in
+`Royaltyport-Version`; signed Storage requests do not receive API credentials
+or version headers. JSON stdout remains machine-readable with each command’s existing output shape. Admission resolution
+is a Birch capability; Aster selection rejects that command before a request.
+Older installed CLIs without a version header remain on the server's Aster
+fallback. To preserve that contract after upgrading, select
+`2026-04-20.aster` explicitly. See [the changelog](CHANGELOG.md).
+
+
+### Birch processing responses
+
+Birch uses `status` and source-wide `terminal`, `resources[]`, per-document
+`document_processes[]`, and `pause.actions`. The CLI displays each resulting
+document's progress. The old `retry` command is Aster-only; on Birch use `resolve`
+with the current pause UUID and an idempotency key. An old frozen acceptance
+response can return `resolution_response_contract_changed`; poll its existing
+status URL instead of creating another decision.
+
+
+### Hosted integration environment
+
+Client CI uses the GitHub `Staging` environment. Configure its `ROYALTYPORT_TEST_BASE_URL`
+and `ROYALTYPORT_TEST_PROJECT_ID` variables and its `ROYALTYPORT_TEST_API_KEY` and
+`ROYALTYPORT_TEST_PROTECTION_BYPASS` secrets. The API key is scoped to a synthetic
+Staging project. Tests refuse missing configuration, Production targets and hosted
+loopback fallbacks. Protection credentials are sent only to the Staging API origin;
+Storage transfers receive no API credentials. Local integration tests require explicit
+loopback URL, project and key. No Production fixture is a default.

@@ -1,3 +1,4 @@
+import type { DocumentProcessingState } from './resolutions.js';
 import type { ProcessInfo } from './api.js';
 import type { ResourceScore } from './contracts.js';
 
@@ -8,15 +9,11 @@ export interface Statement {
   score?: ResourceScore;
 }
 
-export interface StatementProcesses {
+export interface StatementProcesses extends DocumentProcessingState {
   staging_id: number;
   statement_id: number | null;
   staging_done: boolean;
   extraction_done: boolean;
-  staging_terminal: boolean;
-  requires_action: boolean;
-  available_actions: Array<'retry'>;
-  pause_reason: string | null;
   staging_processes: ProcessInfo;
   extraction_processes: {
     stage: string;

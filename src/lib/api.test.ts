@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { apiGet, apiPost, apiPostRetry, apiPut, apiPutExternal, apiUploadFlow, requireAuth, ApiError, MAX_FILE_SIZE } from './api.js';
 
 vi.mock('./config.js', () => ({
+  getApiVersion: vi.fn(() => '2026-10-20.birch'),
   getToken: vi.fn(() => 'test-token'),
   getApiUrl: vi.fn(() => 'https://api.example.com'),
   getAuthMethod: vi.fn(() => 'token'),
@@ -18,7 +19,7 @@ vi.mock('./oauth.js', () => ({
 function mockResponse(body: unknown, init: { status?: number } = {}) {
   return new Response(JSON.stringify(body), {
     status: init.status ?? 200,
-    headers: new Headers(),
+    headers: new Headers({ 'Royaltyport-Version': '2026-10-20.birch' }),
   });
 }
 
@@ -31,6 +32,24 @@ describe('api', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('sends the package release on API requests', async () => {
+    fetchSpy.mockResolvedValue(mockResponse({ data: {} }));
+    await apiGet('/v1/projects', 'token');
+    expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: expect.objectContaining({ 'Royaltyport-Version': '2026-10-20.birch' }) }));
+  });
+
+  it('rejects mismatched successful responses', async () => {
+    fetchSpy.mockResolvedValue(new Response('{"data":{}}', { headers: { 'Royaltyport-Version': '2026-04-20.aster' } }));
+    await expect(apiGet('/v1/projects', 'token')).rejects.toThrow('Expected API release');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards the caller resolution key without changing authentication', async () => {
+    fetchSpy.mockResolvedValue(mockResponse({ data: { status: 'paused' } }));
+    await apiPost('/v1/contracts/staging/42/resolve?projectId=p', {}, 'local-token', { idempotencyKey: 'stable-key' });
+    expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer local-token', 'Idempotency-Key': 'stable-key' }) }));
   });
 
   describe('apiGet', () => {
@@ -201,6 +220,7 @@ describe('api', () => {
       expect(init.method).toBe('PUT');
       const headers = init.headers as Record<string, string>;
       expect(headers['Authorization']).toBeUndefined();
+      expect(headers['Royaltyport-Version']).toBeUndefined();
       expect(headers['content-type']).toBe('application/pdf');
       expect(headers['x-upsert']).toBe('true');
       expect(init.body).toBe(bytes);
@@ -262,10 +282,13 @@ describe('api', () => {
       const [putUrl, putInit] = fetchSpy.mock.calls[1] as [string, RequestInit];
       expect(putUrl).toBe(SIGNED_URL);
       expect((putInit.headers as Record<string, string>)['Authorization']).toBeUndefined();
+      expect(new Headers(putInit.headers).has('Royaltyport-Version')).toBe(false);
+      expect(new Headers(mintInit.headers).get('Royaltyport-Version')).toBe('2026-10-20.birch');
 
       const [completeUrl, completeInit] = fetchSpy.mock.calls[2] as [string, RequestInit];
       expect(completeUrl).toBe('https://api.example.com/v1/statements/uploads/complete?projectId=proj-1');
       expect(JSON.parse(completeInit.body as string)).toEqual({ stagingId: 123 });
+      expect(new Headers(completeInit.headers).get('Royaltyport-Version')).toBe('2026-10-20.birch');
 
       expect(result).toEqual({
         staging_id: 123,
@@ -301,7 +324,8 @@ describe('api', () => {
         .mockResolvedValueOnce(mockResponse({
           data: {
             staging_id: 123,
-            status: 'queued',
+            status: 'uploaded',
+            processing_status: 'queued',
             context_applied: true,
             snapshot_hash: 'a'.repeat(64),
             enqueued: 1,
@@ -335,7 +359,8 @@ describe('api', () => {
       });
       expect(result).toEqual({
         staging_id: 123,
-        status: 'queued',
+        status: 'uploaded',
+        processing_status: 'queued',
         file_path: 'proj/statements_staging/9',
         context_applied: true,
         snapshot_hash: 'a'.repeat(64),

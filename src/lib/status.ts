@@ -8,9 +8,16 @@ export function getProcessTerminalState(
   data: ContractProcesses | StatementProcesses,
   resourceType: 'contract' | 'statement',
 ): ProcessTerminalState {
+  // New source-wide state is authoritative; legacy flags can describe one split child.
+  if (data.status !== undefined) {
+    if (data.status === 'paused') return 'action_required';
+    if (data.terminal) return ['failed', 'rejected', 'cancelled', 'timed_out'].includes(data.status) ? 'failed' : 'completed';
+    if (data.status === 'unknown') throw new Error(data.error?.message ?? 'Source completion cannot be verified; inspect this upload in the Platform');
+    return null;
+  }
   if (data.staging_processes.stage === 'failed') return 'failed';
   if (data.staging_processes.stage === 'rejected') return 'failed';
-  if (data.staging_terminal && data.staging_processes.stage === 'paused') return 'action_required';
+  if (data.staging_processes.stage === 'paused') return 'action_required';
 
   if (resourceType === 'contract') {
     const contract = data as ContractProcesses;
@@ -43,16 +50,35 @@ export function printProcessStatus(
   { resourceType, projectId }: { resourceType: string; projectId?: string },
 ): void {
   const isContract = resourceType === 'contract';
+  if (data.status !== undefined) {
+    printStatusLine([['Staging ID',data.staging_id],['Status',data.status],['Phase',data.phase],['Terminal',data.terminal ? 'yes' : 'no'],['Pause ID',data.pause?.id],['Pause Reason',data.pause?.code]]);
+    if (data.status === 'paused') {
+      const actions = data.pause?.actions ?? [];
+      if (actions.length) {
+        printInfo(`Available pause actions: ${actions.map(action => action.type).join(', ')}.`);
+        if (projectId && data.pause?.id) printInfo(`Resolve this pause with royaltyport ${isContract ? 'contracts' : 'statements'} resolve --help; reuse one stable idempotency key for each decision.`);
+      } else printInfo('Processing is paused; no API resolution is advertised. Inspect this upload in the Platform.');
+    }
+    for (const document of data.document_processes ?? []) {
+      console.log(`${isContract ? 'Contract' : 'Statement'} ${document.id}: ${formatStatus(document.stage ?? 'queued')}`);
+      if (document.extractions?.length) printTable(['Extraction','Status','Completed At'],document.extractions.map(step => [step.name,formatStatus(step.status ?? 'pending'),step.completed_at ?? '-']));
+      if (!isContract) printStatusLine([['Step',document.step],['Remarks',JSON.stringify(document.remarks ?? {})]]);
+    }
+    return;
+  }
 
   const statusEntries: [string, string | number | null | undefined][] = [
     ['Staging ID', data.staging_id],
+    ['Status', data.status],
+    ['Phase', data.phase],
+    ['Pause ID', data.pause?.id],
     [
       isContract ? 'Contract ID' : 'Statement ID',
       isContract ? (data as ContractProcesses).contract_id : (data as StatementProcesses).statement_id,
     ],
     ['Staging', formatStatus(data.staging_processes.stage)],
     ['Staging Done', data.staging_done ? brand('yes') : dim('no')],
-    ['Pause Reason', data.pause_reason],
+    ['Pause Reason', data.pause?.code],
   ];
 
   if (isContract) {
@@ -64,11 +90,13 @@ export function printProcessStatus(
   console.log();
   printStatusLine(statusEntries);
 
-  if (data.requires_action && projectId) {
-    console.log();
-    printInfo('This upload is paused and requires action:');
-    if (data.available_actions.includes('retry')) {
-      printInfo(`  royaltyport ${isContract ? 'contracts' : 'statements'} retry ${projectId} ${data.staging_id}`);
+  if (data.status === 'paused') {
+    const actions = data.pause?.actions ?? [];
+    if (actions.length > 0) {
+      printInfo(`Available pause actions: ${actions.map(action => action.type).join(', ')}.`);
+      if (projectId && data.pause?.id) printInfo(`Resolve this pause with royaltyport ${isContract ? 'contracts' : 'statements'} resolve --help; reuse one stable idempotency key for each decision.`);
+    } else {
+      printInfo('Processing is paused; no API resolution is advertised. Inspect this upload in the Platform.');
     }
   }
 

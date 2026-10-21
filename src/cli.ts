@@ -1,3 +1,4 @@
+import { getApiVersion, pinCommandApiVersion, setApiVersion } from './lib/config.js';
 import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 import { registerLoginCommand } from './commands/login.js';
@@ -16,7 +17,21 @@ const program = new Command();
 program
   .name('royaltyport')
   .description('Royaltyport CLI — authenticate, list projects, and execute commands in a sandboxed project filesystem')
-  .version(pkg.version);
+  .version(pkg.version)
+  .option('--api-version <release>', 'Exact API contract (separate from --version)')
+  .hook('preAction', command => { pinCommandApiVersion(command.optsWithGlobals().apiVersion); });
+
+program.command('api-version')
+  .description('Show the effective API release, or persist an exact profile release')
+  .argument('[release]', 'Exact API release to save for this CLI profile')
+  .action((release?: string) => {
+    if (release !== undefined) {
+      setApiVersion(release);
+      console.log(`Saved API release ${release}. Explicit --api-version and ROYALTYPORT_API_VERSION take precedence.`);
+    } else {
+      console.log(getApiVersion());
+    }
+  });
 
 registerLoginCommand(program);
 registerLogoutCommand(program);
