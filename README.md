@@ -448,7 +448,7 @@ has finished.
 
 ## API release selection
 
-This local candidate pins `2026-10-20.birch`. This is separate from the CLI
+CLI 1.0 defaults to `2026-10-20.birch`. This is separate from the CLI
 package version (`--version`) and the HTTP path prefix (`/v1`). Select an exact
 release with `--api-version`, then `ROYALTYPORT_API_VERSION`, then the saved
 profile setting, in that precedence. There is no moving `latest` alias.
@@ -466,8 +466,8 @@ refresh, polling and retries. API responses must confirm that pin in
 or version headers. JSON stdout remains machine-readable with each command’s existing output shape. Admission resolution
 is a Birch capability; Aster selection rejects that command before a request.
 Older installed CLIs without a version header remain on the server's Aster
-fallback. This candidate is unpublished; coordinate the CLI package release
-separately from activating an API release.
+fallback. To preserve that contract after upgrading, select
+`2026-04-20.aster` explicitly. See [the changelog](CHANGELOG.md).
 
 
 ### Birch processing responses

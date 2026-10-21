@@ -1,6 +1,6 @@
 {
   "name": "@royaltyport/cli",
-  "version": "0.10.0",
+  "version": "1.0.0",
   "description": "Royaltyport CLI — authenticate, list projects, and connect to project file systems",
   "type": "module",
   "bin": {
@@ -18,8 +18,8 @@
     "lint": "eslint",
     "link:cli": "sh scripts/link.sh",
     "unlink:cli": "sh scripts/unlink.sh",
-    "publish:cli": "sh scripts/publish.sh",
-    "publish:beta": "sh scripts/publish-beta.sh",
+    "publish:cli": "npm publish --access public",
+    "publish:beta": "npm publish --access public --tag beta",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -29,7 +29,8 @@
   "license": "UNLICENSED",
   "files": [
     "dist",
-    "bin"
+    "bin",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=18.0.0"
@@ -45,5 +46,12 @@
     "tsup": "^8.0.0",
     "typescript": "^6.0.0",
     "vitest": "^3.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/royaltyport/cli.git"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
