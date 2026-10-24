@@ -32,6 +32,7 @@ export const CONTRACT_EXTRACTION_KEYS = defineCompleteExtractionKeys([
 ] as const);
 
 export interface ContractExtractionRequestOptions {
+  expectedRevision?: string;
   page: string;
   perPage: string;
   citations?: boolean;
@@ -49,6 +50,7 @@ export function buildContractExtractionPath(
     perPage: options.perPage,
   });
   if (options.citations) searchParams.set('citations', 'true');
+  if (options.expectedRevision !== undefined) searchParams.set('expectedRevision', options.expectedRevision);
 
   return `/v1/contracts/${encodeURIComponent(contractId)}/extractions/${encodeURIComponent(extraction)}?${searchParams.toString()}`;
 }

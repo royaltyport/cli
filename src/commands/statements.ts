@@ -1,3 +1,6 @@
+import { registerResourceAgentsCommand } from './agents.js';
+import { getApiVersion } from '../lib/config.js';
+import { documentStatusPath } from '../lib/api-version.js';
 import { registerDocumentResolutionCommand } from './document-resolution.js';
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
@@ -28,6 +31,7 @@ export function registerStatementsCommand(program: Command): void {
     .description('Manage statements: upload, list, update, download, and track processing status');
 
   registerDocumentResolutionCommand(statements, 'statement');
+  registerResourceAgentsCommand(statements, 'statement');
 
   statements
     .command('upload')
@@ -156,7 +160,7 @@ export function registerStatementsCommand(program: Command): void {
 
         const fetchStatus = async (): Promise<StatementProcesses> => {
           const response = await apiGet(
-            `/v1/statements/${stagingId}/processes?projectId=${projectId}`,
+            documentStatusPath('statement', stagingId, projectId, getApiVersion()),
           );
           return response.data as StatementProcesses;
         };

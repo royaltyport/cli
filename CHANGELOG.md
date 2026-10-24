@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.0.0
+
+- Use dedicated contract extraction reads in Birch; unsupported embedded reads fail before authentication or network work.
+- Downstream filters accept the API process keys `contract-deduplication` and `contract-repair`.
+
+- Add `contracts agents`, `statements agents`, `agents runs` and `agents run` for downstream readiness and run inspection. Run lists preserve cursor metadata and links.
+- Add `--expected-revision` to contract extractions. Conditional `--json` output includes the verified `meta.revision`.
+- Reject Agents and conditional reader requests under Aster before authentication or network access. Existing Aster status commands retain `/processes`.
+- Update Birch ingestion types to `staging_split_processes`, `staging_split_manifest` and `resources[].links.agents`, without aliases for the earlier Birch split fields.
+
+- Contract and statement status commands poll `/ingestion` under Birch. Explicit Aster selection continues to use `/processes`; command names and watch behavior are unchanged.
+
+
 ## 1.0.0
 
 CLI 1.0 defaults to API release `2026-10-20.birch`. The API date and CLI package

@@ -185,9 +185,6 @@ royaltyport contracts list $PROJECT_ID
 royaltyport contracts list $PROJECT_ID --page 2 --per-page 50
 royaltyport contracts list $PROJECT_ID --score
 royaltyport contracts list $PROJECT_ID --extractor-ids 201,202
-royaltyport contracts list $PROJECT_ID --includes commitments
-royaltyport contracts list $PROJECT_ID --includes languages,balances,targets
-royaltyport contracts list $PROJECT_ID --includes commitments --citations --json
 ```
 
 When `--extractor-ids` is provided, the table includes each matching custom
@@ -198,21 +195,9 @@ result with `id`, `internal_uuid`, `created_at`, `updated_at`, `extractor_id`,
 
 Get one contract by numeric ID or internal UUID.
 
-#### Embedded extractions
-
-Existing `--includes` behavior is unchanged. Each requested key remains an
-array under `extractions`, capped at 100 items and without pagination metadata:
-
 ```bash
 royaltyport contracts get $PROJECT_ID $CONTRACT_ID
-royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes compositions,recordings --json
-royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes languages,balances,targets --json
-royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes commitments --citations --json
 ```
-
-Commitment JSON uses `linked_deliverables` for deliverables and `linked_assets`
-for recording/composition links. Pass `--citations` to return supporting
-citations.
 
 ### `royaltyport contracts extractions <project_id> <contract_id> <key>`
 
@@ -407,7 +392,7 @@ Read processing status first and submit its current `pause.id` (or `pause_id`).
 Use one stable idempotency key per decision. If a request times out, retry the
 same key and payload; a different payload under that key returns HTTP 409.
 HTTP 202 means accepted for background dispatch; HTTP 200 can mean capacity
-is still full. Continue reading the stable `/processes` URL and use the
+is still full. Continue reading the Birch `/ingestion` URL (Aster retains `/processes`) and use the
 source-wide `status`, `terminal`, and `poll_after_seconds` fields. A paused or
 unknown source is not a signal to poll forever. Existing retry methods remain
 available for older integrations.
@@ -489,3 +474,41 @@ Staging project. Tests refuse missing configuration, Production targets and host
 loopback fallbacks. Protection credentials are sent only to the Staging API origin;
 Storage transfers receive no API credentials. Local integration tests require explicit
 loopback URL, project and key. No Production fixture is a default.
+
+
+## Check downstream processing and reader readiness
+
+Use the Agents commands after ingestion creates a canonical contract or statement. Pass the ID from `resources[]`; keep the upload’s staging ID for status polling.
+
+Read a resource’s downstream state:
+
+```bash
+royaltyport contracts agents project_uuid 123
+royaltyport statements agents project_uuid 456
+```
+
+Each command prints the full response. `agent_runs` summarizes processing runs; `agent_readiness` identifies current outputs. A completed run alone does not prove reader readiness. Statement readiness reports processing milestones; it does not promise Data Room serving.
+
+When contract recordings or compositions are ready, use their `revision` on every page:
+
+```bash
+royaltyport contracts extractions project_uuid 123 recordings \
+  --expected-revision readiness_revision --page 1 --per-page 100 --json
+```
+
+Conditional JSON output includes `meta.revision`. If the API returns `409 readiness_changed`, fetch Agents again before restarting pagination. Check `quality.issues` for metadata limitations even when readiness is `ready`.
+
+Filter runs, reuse the returned cursor, or inspect one run’s steps:
+
+```bash
+royaltyport agents runs project_uuid --resource-type contract --resource-id 123
+royaltyport agents runs project_uuid --resource-type contract --resource-id 123 \
+  --cursor next_cursor
+royaltyport agents run project_uuid run_uuid
+```
+
+Run lists retain `data`, `meta.has_more`, `meta.next_cursor` and `links.next`. Keep the same project, filters and limit when reusing a cursor. Available filters are `--resource-type`, `--resource-id`, `--process-key`, `--status` and `--limit`.
+
+Agents commands and `--expected-revision` require Birch. The CLI rejects Aster before authentication or network requests. Existing status commands continue to use `/processes` when you select Aster explicitly.
+
+Birch contract ingestion returns `staging_split_processes` and `staging_split_manifest`, replacing `intermediate_processes` and `split_manifest`. Resulting resources include `links.agents`.

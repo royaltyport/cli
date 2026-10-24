@@ -1,3 +1,6 @@
+import { registerResourceAgentsCommand } from './agents.js';
+import { getApiVersion } from '../lib/config.js';
+import { assertVersionedOperation, documentStatusPath } from '../lib/api-version.js';
 import { registerDocumentResolutionCommand } from './document-resolution.js';
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
@@ -32,6 +35,7 @@ export function registerContractsCommand(program: Command): void {
     .description('Manage contracts: upload, list, retrieve, update, download, and track processing status');
 
   registerDocumentResolutionCommand(contracts, 'contract');
+  registerResourceAgentsCommand(contracts, 'contract');
 
   contracts
     .command('upload')
@@ -158,7 +162,7 @@ export function registerContractsCommand(program: Command): void {
 
         const fetchStatus = async (): Promise<ContractProcesses> => {
           const response = await apiGet(
-            `/v1/contracts/${stagingId}/processes?projectId=${projectId}`,
+            documentStatusPath('contract', stagingId, projectId, getApiVersion()),
           );
           return response.data as ContractProcesses;
         };
@@ -214,12 +218,15 @@ export function registerContractsCommand(program: Command): void {
     .description('Get a contract by numeric ID or internal UUID')
     .argument('<project_id>', 'Project ID (UUID)')
     .argument('<contract_id>', 'Contract numeric ID or internal UUID')
-    .option('--includes <list>', 'Comma-separated extracted sub-resources to include, such as languages, commitments, or balances')
+    .option('--includes <list>', 'Aster only: comma-separated extracted sub-resources')
     .option('--score', 'Include score summary and failed/warned rules')
     .option('--citations', 'Return citations with extracted items')
     .option('--json', 'Print the complete API data payload as JSON')
     .action(async (projectId: string, contractId: string, options: ContractsGetOptions) => {
       try {
+        if (options.includes !== undefined) {
+          assertVersionedOperation(`/v1/contracts?includes=${encodeURIComponent(options.includes)}`, getApiVersion());
+        }
         await requireAuth();
 
         const includes = parseContractIncludes(options.includes);
@@ -286,7 +293,8 @@ export function registerContractsCommand(program: Command): void {
     .option('-p, --page <page>', 'Page number', '1')
     .option('-n, --per-page <perPage>', 'Results per page (max 250)', '100')
     .option('--citations', 'Return citations with extracted items')
-    .option('--json', 'Print the complete paginated payload as JSON')
+    .option('--expected-revision <revision>', 'Require the recordings/compositions readiness revision (Birch only)')
+    .option('--json', 'Print the paginated payload and conditional revision as JSON')
     .action(async (
       projectId: string,
       contractId: string,
@@ -294,17 +302,19 @@ export function registerContractsCommand(program: Command): void {
       options: ContractsExtractionsOptions,
     ) => {
       try {
-        await requireAuth();
         const extraction = parseContractExtractionKey(key);
+        const path = buildContractExtractionPath(projectId, contractId, extraction, options);
+        assertVersionedOperation(path, getApiVersion());
+        await requireAuth();
 
         const spinner = ora({ text: `Fetching ${extraction}...`, color: spinnerColor }).start();
         const response = await apiGet(
-          buildContractExtractionPath(projectId, contractId, extraction, options),
+          path,
         ).finally(() => spinner.stop());
 
         const result = response.data as PaginatedResult<Record<string, unknown>>;
         if (options.json) {
-          printJson(result);
+          printJson(options.expectedRevision ? response : result);
           return;
         }
         if (result.items.length === 0) {
@@ -372,12 +382,15 @@ export function registerContractsCommand(program: Command): void {
     .option('-p, --page <page>', 'Page number', '1')
     .option('-n, --per-page <perPage>', 'Results per page', '20')
     .option('--extractor-ids <ids>', 'Comma-separated custom extractor IDs whose results to include')
-    .option('--includes <list>', 'Comma-separated extracted sub-resources to include, such as languages, commitments, or balances')
+    .option('--includes <list>', 'Aster only: comma-separated extracted sub-resources')
     .option('--score', 'Include score summary and failed/warned rules')
     .option('--citations', 'Return citations with extracted items')
     .option('--json', 'Print the complete API data payload as JSON')
     .action(async (projectId: string, options: ContractsListOptions) => {
       try {
+        if (options.includes !== undefined) {
+          assertVersionedOperation(`/v1/contracts?includes=${encodeURIComponent(options.includes)}`, getApiVersion());
+        }
         await requireAuth();
 
         const extractorIds = options.extractorIds ? parseExtractorIds(options.extractorIds) : undefined;

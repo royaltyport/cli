@@ -37,6 +37,7 @@ describe('CLI update and tag commands', () => {
       '--page',
       '--per-page',
       '--citations',
+      '--expected-revision',
       '--json',
     ]));
     expect(extraction.options.find(option => option.long === '--per-page')?.defaultValue).toBe('100');
@@ -59,4 +60,14 @@ it('registers durable resolution in both real document command groups', () => {
       expect(resolve.options.find(option => option.long === flag)?.mandatory).toBe(true);
     }
   }
+});
+
+
+it('registers downstream resource and run inspection', () => {
+  for (const name of ['contracts', 'statements']) expect(child(child(program, name), 'agents')).toBeDefined();
+  const agents = child(program, 'agents');
+  expect(child(agents, 'run').usage()).toContain('<project_id> <run_id>');
+  expect(optionNames(child(agents, 'runs'))).toEqual(expect.arrayContaining([
+    '--resource-type', '--resource-id', '--process-key', '--status', '--limit', '--cursor',
+  ]));
 });
