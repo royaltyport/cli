@@ -34,7 +34,7 @@ describe('Statements (integration)', () => {
     it('gets statement processes', async () => {
       if (!uploadedStagingId) return;
 
-      const response = await get(`/v1/statements/${uploadedStagingId}/processes?projectId=${PROJECT_ID}`);
+      const response = await get(`/v1/statements/${uploadedStagingId}/ingestion?projectId=${PROJECT_ID}`);
       const data = response.data as StatementProcesses;
 
       expect(data).toHaveProperty('staging_id');

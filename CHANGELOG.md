@@ -1,5 +1,10 @@
 # Changelog
 
+## Next release
+
+- Contract and statement status commands poll `/ingestion` under Birch. Explicit Aster selection continues to use `/processes`; command names and watch behavior are unchanged.
+
+
 ## 1.0.0
 
 CLI 1.0 defaults to API release `2026-10-20.birch`. The API date and CLI package

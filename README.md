@@ -407,7 +407,7 @@ Read processing status first and submit its current `pause.id` (or `pause_id`).
 Use one stable idempotency key per decision. If a request times out, retry the
 same key and payload; a different payload under that key returns HTTP 409.
 HTTP 202 means accepted for background dispatch; HTTP 200 can mean capacity
-is still full. Continue reading the stable `/processes` URL and use the
+is still full. Continue reading the Birch `/ingestion` URL (Aster retains `/processes`) and use the
 source-wide `status`, `terminal`, and `poll_after_seconds` fields. A paused or
 unknown source is not a signal to poll forever. Existing retry methods remain
 available for older integrations.

@@ -20,10 +20,20 @@ export function assertVersionedResponse(response: Response, expected: ApiVersion
 }
 
 export function assertVersionedOperation(path: string, version: ApiVersion): void {
+  const endpoint = /\/v1\/(?:contracts|statements)\/[^/]+\/(processes|ingestion)(?:[?]|$)/.exec(path)?.[1];
+  if (endpoint && endpoint !== (version === '2026-04-20.aster' ? 'processes' : 'ingestion')) {
+    throw new Error('Use /ingestion for Birch polling and /processes for Aster polling.');
+  }
   if (version === '2026-10-20.birch' && /\/staging\/[^/]+\/retry(?:[?]|$)/.test(path)) {
     throw new Error('Birch admission retry requires resolve with the current pause ID and an idempotency key. The retry command is Aster-only.');
   }
   if (version === '2026-04-20.aster' && /\/staging\/[^/]+\/resolve(?:[?]|$)/.test(path)) {
     throw new Error('Admission resolution requires --api-version 2026-10-20.birch.');
   }
+}
+
+/** Status commands preserve Aster routing while Birch names the ingestion journey. */
+export function documentStatusPath(kind: 'contract' | 'statement', stagingId: string, projectId: string, version: ApiVersion): string {
+  const endpoint = version === '2026-04-20.aster' ? 'processes' : 'ingestion';
+  return `/v1/${kind}s/${encodeURIComponent(stagingId)}/${endpoint}?projectId=${encodeURIComponent(projectId)}`;
 }

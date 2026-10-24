@@ -1,3 +1,5 @@
+import { getApiVersion } from '../lib/config.js';
+import { documentStatusPath } from '../lib/api-version.js';
 import { registerDocumentResolutionCommand } from './document-resolution.js';
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
@@ -158,7 +160,7 @@ export function registerContractsCommand(program: Command): void {
 
         const fetchStatus = async (): Promise<ContractProcesses> => {
           const response = await apiGet(
-            `/v1/contracts/${stagingId}/processes?projectId=${projectId}`,
+            documentStatusPath('contract', stagingId, projectId, getApiVersion()),
           );
           return response.data as ContractProcesses;
         };
