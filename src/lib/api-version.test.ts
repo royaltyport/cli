@@ -40,3 +40,13 @@ describe.each(['contract', 'statement'] as const)('%s status route selection', k
     expect(() => assertVersionedOperation(other, version)).toThrow('/ingestion');
   });
 });
+
+
+it.each([
+  '/v1/agents/runs?projectId=p', '/v1/agents/runs/run-id?projectId=p',
+  '/v1/contracts/42/agents?projectId=p', '/v1/statements/42/agents?projectId=p',
+  '/v1/contracts/42/extractions/recordings?projectId=p&expectedRevision=r1_token',
+])('gates Birch-only inspection before network: %s', path => {
+  expect(() => assertVersionedOperation(path, aster)).toThrow('2026-10-20.birch');
+  expect(() => assertVersionedOperation(path, birch)).not.toThrow();
+});

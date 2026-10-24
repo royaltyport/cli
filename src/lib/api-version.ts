@@ -20,6 +20,11 @@ export function assertVersionedResponse(response: Response, expected: ApiVersion
 }
 
 export function assertVersionedOperation(path: string, version: ApiVersion): void {
+  if (version === '2026-04-20.aster' && (
+    /\/v1\/agents(?:[/?]|$)/.test(path)
+    || /\/v1\/(?:contracts|statements)\/[^/]+\/agents(?:[?]|$)/.test(path)
+    || new URL(path, 'https://api.royaltyport.com').searchParams.has('expectedRevision')
+  )) throw new Error('Agents and conditional reader requests require --api-version 2026-10-20.birch.');
   const endpoint = /\/v1\/(?:contracts|statements)\/[^/]+\/(processes|ingestion)(?:[?]|$)/.exec(path)?.[1];
   if (endpoint && endpoint !== (version === '2026-04-20.aster' ? 'processes' : 'ingestion')) {
     throw new Error('Use /ingestion for Birch polling and /processes for Aster polling.');

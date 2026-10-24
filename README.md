@@ -489,3 +489,41 @@ Staging project. Tests refuse missing configuration, Production targets and host
 loopback fallbacks. Protection credentials are sent only to the Staging API origin;
 Storage transfers receive no API credentials. Local integration tests require explicit
 loopback URL, project and key. No Production fixture is a default.
+
+
+## Check downstream processing and reader readiness
+
+Use the Agents commands after ingestion creates a canonical contract or statement. Pass the ID from `resources[]`; keep the upload’s staging ID for status polling.
+
+Read a resource’s downstream state:
+
+```bash
+royaltyport contracts agents project_uuid 123
+royaltyport statements agents project_uuid 456
+```
+
+Each command prints the full response. `agent_runs` summarizes processing runs; `agent_readiness` identifies current outputs. A completed run alone does not prove reader readiness. Statement readiness reports processing milestones; it does not promise Data Room serving.
+
+When contract recordings or compositions are ready, use their `revision` on every page:
+
+```bash
+royaltyport contracts extractions project_uuid 123 recordings \
+  --expected-revision readiness_revision --page 1 --per-page 100 --json
+```
+
+Conditional JSON output includes `meta.revision`. If the API returns `409 readiness_changed`, fetch Agents again before restarting pagination. Check `quality.issues` for metadata limitations even when readiness is `ready`.
+
+Filter runs, reuse the returned cursor, or inspect one run’s steps:
+
+```bash
+royaltyport agents runs project_uuid --resource-type contract --resource-id 123
+royaltyport agents runs project_uuid --resource-type contract --resource-id 123 \
+  --cursor next_cursor
+royaltyport agents run project_uuid run_uuid
+```
+
+Run lists retain `data`, `meta.has_more`, `meta.next_cursor` and `links.next`. Keep the same project, filters and limit when reusing a cursor. Available filters are `--resource-type`, `--resource-id`, `--process-key`, `--status` and `--limit`.
+
+Agents commands and `--expected-revision` require Birch. The CLI rejects Aster before authentication or network requests. Existing status commands continue to use `/processes` when you select Aster explicitly.
+
+Birch contract ingestion returns `staging_split_processes` and `staging_split_manifest`, replacing `intermediate_processes` and `split_manifest`. Resulting resources include `links.agents`.

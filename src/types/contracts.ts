@@ -415,6 +415,7 @@ export interface ContractsGetOptions {
 }
 
 export interface ContractsExtractionsOptions {
+  expectedRevision?: string;
   page: string;
   perPage: string;
   citations?: boolean;

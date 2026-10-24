@@ -1,5 +1,6 @@
+import { registerResourceAgentsCommand } from './agents.js';
 import { getApiVersion } from '../lib/config.js';
-import { documentStatusPath } from '../lib/api-version.js';
+import { assertVersionedOperation, documentStatusPath } from '../lib/api-version.js';
 import { registerDocumentResolutionCommand } from './document-resolution.js';
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
@@ -34,6 +35,7 @@ export function registerContractsCommand(program: Command): void {
     .description('Manage contracts: upload, list, retrieve, update, download, and track processing status');
 
   registerDocumentResolutionCommand(contracts, 'contract');
+  registerResourceAgentsCommand(contracts, 'contract');
 
   contracts
     .command('upload')
@@ -288,7 +290,8 @@ export function registerContractsCommand(program: Command): void {
     .option('-p, --page <page>', 'Page number', '1')
     .option('-n, --per-page <perPage>', 'Results per page (max 250)', '100')
     .option('--citations', 'Return citations with extracted items')
-    .option('--json', 'Print the complete paginated payload as JSON')
+    .option('--expected-revision <revision>', 'Require the recordings/compositions readiness revision (Birch only)')
+    .option('--json', 'Print the paginated payload and conditional revision as JSON')
     .action(async (
       projectId: string,
       contractId: string,
@@ -296,17 +299,19 @@ export function registerContractsCommand(program: Command): void {
       options: ContractsExtractionsOptions,
     ) => {
       try {
-        await requireAuth();
         const extraction = parseContractExtractionKey(key);
+        const path = buildContractExtractionPath(projectId, contractId, extraction, options);
+        assertVersionedOperation(path, getApiVersion());
+        await requireAuth();
 
         const spinner = ora({ text: `Fetching ${extraction}...`, color: spinnerColor }).start();
         const response = await apiGet(
-          buildContractExtractionPath(projectId, contractId, extraction, options),
+          path,
         ).finally(() => spinner.stop());
 
         const result = response.data as PaginatedResult<Record<string, unknown>>;
         if (options.json) {
-          printJson(result);
+          printJson(options.expectedRevision ? response : result);
           return;
         }
         if (result.items.length === 0) {

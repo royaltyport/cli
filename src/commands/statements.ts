@@ -1,3 +1,4 @@
+import { registerResourceAgentsCommand } from './agents.js';
 import { getApiVersion } from '../lib/config.js';
 import { documentStatusPath } from '../lib/api-version.js';
 import { registerDocumentResolutionCommand } from './document-resolution.js';
@@ -30,6 +31,7 @@ export function registerStatementsCommand(program: Command): void {
     .description('Manage statements: upload, list, update, download, and track processing status');
 
   registerDocumentResolutionCommand(statements, 'statement');
+  registerResourceAgentsCommand(statements, 'statement');
 
   statements
     .command('upload')

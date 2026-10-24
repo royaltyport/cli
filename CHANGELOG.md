@@ -2,6 +2,11 @@
 
 ## Next release
 
+- Add `contracts agents`, `statements agents`, `agents runs` and `agents run` for downstream readiness and run inspection. Run lists preserve cursor metadata and links.
+- Add `--expected-revision` to contract extractions. Conditional `--json` output includes the verified `meta.revision`.
+- Reject Agents and conditional reader requests under Aster before authentication or network access. Existing Aster status commands retain `/processes`.
+- Update Birch ingestion types to `staging_split_processes`, `staging_split_manifest` and `resources[].links.agents`, without aliases for the earlier Birch split fields.
+
 - Contract and statement status commands poll `/ingestion` under Birch. Explicit Aster selection continues to use `/processes`; command names and watch behavior are unchanged.
 
 
