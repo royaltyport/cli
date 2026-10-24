@@ -1,6 +1,9 @@
 # Changelog
 
-## Next release
+## 2.0.0
+
+- Use dedicated contract extraction reads in Birch; unsupported embedded reads fail before authentication or network work.
+- Downstream filters accept the API process keys `contract-deduplication` and `contract-repair`.
 
 - Add `contracts agents`, `statements agents`, `agents runs` and `agents run` for downstream readiness and run inspection. Run lists preserve cursor metadata and links.
 - Add `--expected-revision` to contract extractions. Conditional `--json` output includes the verified `meta.revision`.

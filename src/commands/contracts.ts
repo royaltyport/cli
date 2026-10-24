@@ -218,12 +218,15 @@ export function registerContractsCommand(program: Command): void {
     .description('Get a contract by numeric ID or internal UUID')
     .argument('<project_id>', 'Project ID (UUID)')
     .argument('<contract_id>', 'Contract numeric ID or internal UUID')
-    .option('--includes <list>', 'Comma-separated extracted sub-resources to include, such as languages, commitments, or balances')
+    .option('--includes <list>', 'Aster only: comma-separated extracted sub-resources')
     .option('--score', 'Include score summary and failed/warned rules')
     .option('--citations', 'Return citations with extracted items')
     .option('--json', 'Print the complete API data payload as JSON')
     .action(async (projectId: string, contractId: string, options: ContractsGetOptions) => {
       try {
+        if (options.includes !== undefined) {
+          assertVersionedOperation(`/v1/contracts?includes=${encodeURIComponent(options.includes)}`, getApiVersion());
+        }
         await requireAuth();
 
         const includes = parseContractIncludes(options.includes);
@@ -379,12 +382,15 @@ export function registerContractsCommand(program: Command): void {
     .option('-p, --page <page>', 'Page number', '1')
     .option('-n, --per-page <perPage>', 'Results per page', '20')
     .option('--extractor-ids <ids>', 'Comma-separated custom extractor IDs whose results to include')
-    .option('--includes <list>', 'Comma-separated extracted sub-resources to include, such as languages, commitments, or balances')
+    .option('--includes <list>', 'Aster only: comma-separated extracted sub-resources')
     .option('--score', 'Include score summary and failed/warned rules')
     .option('--citations', 'Return citations with extracted items')
     .option('--json', 'Print the complete API data payload as JSON')
     .action(async (projectId: string, options: ContractsListOptions) => {
       try {
+        if (options.includes !== undefined) {
+          assertVersionedOperation(`/v1/contracts?includes=${encodeURIComponent(options.includes)}`, getApiVersion());
+        }
         await requireAuth();
 
         const extractorIds = options.extractorIds ? parseExtractorIds(options.extractorIds) : undefined;

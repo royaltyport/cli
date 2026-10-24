@@ -50,3 +50,9 @@ it.each([
   expect(() => assertVersionedOperation(path, aster)).toThrow('2026-10-20.birch');
   expect(() => assertVersionedOperation(path, birch)).not.toThrow();
 });
+
+
+it.each(['/v1/contracts?includes=types', '/v1/contracts/42?includes=', '/v1/contracts/42?includes=commitments'])('uses dedicated extraction reads in Birch: %s', path => {
+  expect(() => assertVersionedOperation(path, birch)).toThrow('contracts extractions');
+  expect(() => assertVersionedOperation(path, aster)).not.toThrow();
+});

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { get, upload, PROJECT_ID } from './setup.js';
-import type { Contract, ContractProcesses, PaginatedResult } from '../../src/types/index.js';
+import type { Contract, ContractCommitment, ContractProcesses, PaginatedResult } from '../../src/types/index.js';
 
 describe('Contracts (integration)', () => {
   it('lists contracts', async () => {
@@ -12,38 +12,21 @@ describe('Contracts (integration)', () => {
     expect(Array.isArray(data.items)).toBe(true);
   });
 
-  it('lists contracts with includes', async () => {
-    const response = await get(`/v1/contracts?projectId=${PROJECT_ID}&includes=entities,royalties,languages,balances`);
-
+  it('returns contract metadata without embedded extractions', async () => {
+    const response = await get(`/v1/contracts?projectId=${PROJECT_ID}`);
     const data = response.data as PaginatedResult<Contract>;
-    expect(data).toHaveProperty('items');
-    for (const contract of data.items) {
-      expect(Array.isArray(contract.extractions?.languages)).toBe(true);
-      expect(Array.isArray(contract.extractions?.balances)).toBe(true);
-      for (const language of contract.extractions?.languages ?? []) {
-        expect(typeof language.id).toBe('number');
-        expect(language).not.toHaveProperty('internal_id');
-        expect(typeof language.internal_uuid).toBe('string');
-        expect(typeof language.created_at).toBe('string');
-        expect(typeof language.updated_at).toBe('string');
-      }
-    }
+    for (const contract of data.items) expect(contract).not.toHaveProperty('extractions');
   });
 
-  it('lists and gets commitments with automatic asset links', async () => {
-    const listResponse = await get(`/v1/contracts?projectId=${PROJECT_ID}&perPage=1&includes=commitments&citations=true`);
+  it('pages commitments with automatic asset links', async () => {
+    const listResponse = await get(`/v1/contracts?projectId=${PROJECT_ID}&perPage=1`);
     const listed = listResponse.data as PaginatedResult<Contract>;
-    expect(Array.isArray(listed.items)).toBe(true);
-    for (const listedContract of listed.items) {
-      expect(Array.isArray(listedContract.extractions?.commitments)).toBe(true);
-    }
-
     const contractId = listed.items[0]?.id;
-    if (!contractId) return;
-    const getResponse = await get(`/v1/contracts/${contractId}?projectId=${PROJECT_ID}&includes=commitments&citations=true`);
-    const contract = getResponse.data as Contract;
-
-    for (const commitment of contract.extractions?.commitments ?? []) {
+    if (!contractId) throw new Error('Staging corpus must include a contract');
+    const response = await get(`/v1/contracts/${contractId}/extractions/commitments?projectId=${PROJECT_ID}&citations=true`);
+    const data = response.data as PaginatedResult<ContractCommitment>;
+    expect(Array.isArray(data.items)).toBe(true);
+    for (const commitment of data.items) {
       expect(commitment).not.toHaveProperty('internal_id');
       expect(typeof commitment.internal_uuid).toBe('string');
       expect(typeof commitment.created_at).toBe('string');

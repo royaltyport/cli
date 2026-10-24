@@ -20,6 +20,10 @@ export function assertVersionedResponse(response: Response, expected: ApiVersion
 }
 
 export function assertVersionedOperation(path: string, version: ApiVersion): void {
+  const url = new URL(path, 'https://api.royaltyport.com');
+  if (version === '2026-10-20.birch' && /^\/v1\/contracts(?:\/[^/]+)?$/.test(url.pathname) && url.searchParams.has('includes')) {
+    throw new Error('Read standard contract extraction collections with contracts extractions.');
+  }
   if (version === '2026-04-20.aster' && (
     /\/v1\/agents(?:[/?]|$)/.test(path)
     || /\/v1\/(?:contracts|statements)\/[^/]+\/agents(?:[?]|$)/.test(path)

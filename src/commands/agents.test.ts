@@ -88,3 +88,16 @@ describe('Agents commands', () => {
     expect(printJson).toHaveBeenCalledWith(body);
   });
 });
+
+
+it.each([['get', 'p', '42'], ['list', 'p']])('rejects Birch embedded contract reads before auth: %j', async (...args) => {
+  const root = new Command();
+  registerContractsCommand(root);
+  const exit = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('command exited'); });
+  try {
+    await expect(root.parseAsync(['contracts', ...args, '--includes', 'commitments'], { from: 'user' })).rejects.toThrow('command exited');
+    expect(requireAuth).not.toHaveBeenCalled();
+    expect(apiGet).not.toHaveBeenCalled();
+    expect(printError).toHaveBeenCalledWith(expect.stringContaining('contracts extractions'));
+  } finally { exit.mockRestore(); }
+});

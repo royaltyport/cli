@@ -185,9 +185,6 @@ royaltyport contracts list $PROJECT_ID
 royaltyport contracts list $PROJECT_ID --page 2 --per-page 50
 royaltyport contracts list $PROJECT_ID --score
 royaltyport contracts list $PROJECT_ID --extractor-ids 201,202
-royaltyport contracts list $PROJECT_ID --includes commitments
-royaltyport contracts list $PROJECT_ID --includes languages,balances,targets
-royaltyport contracts list $PROJECT_ID --includes commitments --citations --json
 ```
 
 When `--extractor-ids` is provided, the table includes each matching custom
@@ -198,21 +195,9 @@ result with `id`, `internal_uuid`, `created_at`, `updated_at`, `extractor_id`,
 
 Get one contract by numeric ID or internal UUID.
 
-#### Embedded extractions
-
-Existing `--includes` behavior is unchanged. Each requested key remains an
-array under `extractions`, capped at 100 items and without pagination metadata:
-
 ```bash
 royaltyport contracts get $PROJECT_ID $CONTRACT_ID
-royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes compositions,recordings --json
-royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes languages,balances,targets --json
-royaltyport contracts get $PROJECT_ID $CONTRACT_ID --includes commitments --citations --json
 ```
-
-Commitment JSON uses `linked_deliverables` for deliverables and `linked_assets`
-for recording/composition links. Pass `--citations` to return supporting
-citations.
 
 ### `royaltyport contracts extractions <project_id> <contract_id> <key>`
 
