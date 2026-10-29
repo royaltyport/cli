@@ -45,7 +45,7 @@
     "@types/node": "^22.0.0",
     "tsup": "^8.0.0",
     "typescript": "^6.0.0",
-    "vitest": "^3.0.0"
+    "vitest": "4.1.12"
   },
   "repository": {
     "type": "git",
@@ -53,5 +53,19 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "overrides": {
+    "vite": {
+      ".": "7.3.7",
+      "esbuild": "0.28.2",
+      "postcss": "8.5.30"
+    },
+    "tsup": {
+      "esbuild": "0.28.2",
+      "postcss": "8.5.30"
+    },
+    "ajv": {
+      "fast-uri": "3.1.9"
+    }
   }
 }

@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { printTable, printError, printSuccess, printInfo, printJson, printStatusLine } from './output.js';
 
 describe('output', () => {
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});

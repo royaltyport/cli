@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Refresh security-sensitive test and build dependencies; preserve Node 18 runtime support.
+- Update the runtime configuration URI parser to its patched release.
+
+
 ## 2.0.0
 
 - Use dedicated contract extraction reads in Birch; unsupported embedded reads fail before authentication or network work.
