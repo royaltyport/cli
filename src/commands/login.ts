@@ -1,3 +1,4 @@
+import { printApiError } from '../lib/api-error-output.js';
 import { createInterface } from 'node:readline/promises';
 import type { Command } from 'commander';
 import ora from 'ora';
@@ -38,7 +39,7 @@ export function registerLoginCommand(program: Command): void {
         // Browser-based OAuth login (default)
         await loginWithBrowser();
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -59,7 +60,7 @@ async function loginWithBrowser(): Promise<void> {
     spinner.succeed(`Authenticated successfully (${projectCount} project${projectCount !== 1 ? 's' : ''} accessible)`);
   } catch (err) {
     spinner.fail('Session validation failed');
-    printError(err instanceof Error ? err.message : String(err));
+    printApiError(err);
     process.exit(1);
   }
 
@@ -83,7 +84,7 @@ async function loginWithToken(token: string): Promise<void> {
     spinner.succeed(`Authenticated successfully (${projectCount} project${projectCount !== 1 ? 's' : ''} accessible)`);
   } catch (err) {
     spinner.fail('Token validation failed');
-    printError(err instanceof Error ? err.message : String(err));
+    printApiError(err);
     process.exit(1);
   }
 

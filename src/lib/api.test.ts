@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { apiGet, apiPost, apiPostRetry, apiPut, apiPutExternal, apiUploadFlow, requireAuth, ApiError, MAX_FILE_SIZE } from './api.js';
 
 vi.mock('./config.js', () => ({
-  getApiVersion: vi.fn(() => '2026-10-20.birch'),
   getToken: vi.fn(() => 'test-token'),
   getApiUrl: vi.fn(() => 'https://api.example.com'),
   getAuthMethod: vi.fn(() => 'token'),

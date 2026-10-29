@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Command } from 'commander';
 import { apiGet, requireAuth } from '../lib/api.js';
-import { getApiVersion } from '../lib/config.js';
 import { printError, printJson } from '../lib/output.js';
 import { registerAgentsCommand, registerResourceAgentsCommand } from './agents.js';
 import { registerContractsCommand } from './contracts.js';
 
 vi.mock('../lib/api.js', () => ({ apiGet: vi.fn(), requireAuth: vi.fn() }));
-vi.mock('../lib/config.js', () => ({ getApiVersion: vi.fn(() => '2026-10-20.birch') }));
 vi.mock('../lib/output.js', () => ({ printJson: vi.fn(), printError: vi.fn() }));
 
 function program(): Command {
@@ -22,7 +20,6 @@ async function run(args: string[]): Promise<void> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getApiVersion).mockReturnValue('2026-10-20.birch');
   vi.mocked(apiGet).mockResolvedValue({ data: [], meta: { has_more: false, next_cursor: null }, links: { next: null } });
   process.exitCode = 0;
 });
@@ -48,35 +45,6 @@ describe('Agents commands', () => {
     expect(apiGet).toHaveBeenCalledWith('/v1/agents/runs/run%2Fid?projectId=project-1');
   });
 
-  it.each([
-    ['contracts', 'agents', 'p', '42'], ['statements', 'agents', 'p', '42'],
-    ['agents', 'runs', 'p'], ['agents', 'run', 'p', 'run-id'],
-  ])('rejects Aster before authentication or network: %j', async (...args) => {
-    vi.mocked(getApiVersion).mockReturnValue('2026-04-20.aster');
-    await run(args);
-    expect(apiGet).not.toHaveBeenCalled();
-    expect(requireAuth).not.toHaveBeenCalled();
-    expect(printError).toHaveBeenCalledWith(expect.stringContaining('2026-10-20.birch'));
-    expect(process.exitCode).toBe(1);
-    process.exitCode = 0;
-  });
-
-  it('rejects Aster conditional extraction before auth can refresh credentials', async () => {
-    const root = new Command();
-    registerContractsCommand(root);
-    vi.mocked(getApiVersion).mockReturnValue('2026-04-20.aster');
-    const exit = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('command exited'); });
-    try {
-      await expect(root.parseAsync(['contracts', 'extractions', 'p', '42', 'recordings',
-        '--expected-revision', 'r1_token', '--json'], { from: 'user' })).rejects.toThrow('command exited');
-      expect(apiGet).not.toHaveBeenCalled();
-      expect(requireAuth).not.toHaveBeenCalled();
-      expect(printError).toHaveBeenCalledWith(expect.stringContaining('2026-10-20.birch'));
-    } finally {
-      exit.mockRestore();
-    }
-  });
-
   it('forwards expectedRevision and prints the verified meta.revision on conditional extraction', async () => {
     const root = new Command();
     registerContractsCommand(root);
@@ -87,17 +55,4 @@ describe('Agents commands', () => {
     expect(apiGet).toHaveBeenCalledWith('/v1/contracts/42/extractions/recordings?projectId=project-1&page=2&perPage=1&expectedRevision=r1_current');
     expect(printJson).toHaveBeenCalledWith(body);
   });
-});
-
-
-it.each([['get', 'p', '42'], ['list', 'p']])('rejects Birch embedded contract reads before auth: %j', async (...args) => {
-  const root = new Command();
-  registerContractsCommand(root);
-  const exit = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('command exited'); });
-  try {
-    await expect(root.parseAsync(['contracts', ...args, '--includes', 'commitments'], { from: 'user' })).rejects.toThrow('command exited');
-    expect(requireAuth).not.toHaveBeenCalled();
-    expect(apiGet).not.toHaveBeenCalled();
-    expect(printError).toHaveBeenCalledWith(expect.stringContaining('contracts extractions'));
-  } finally { exit.mockRestore(); }
 });

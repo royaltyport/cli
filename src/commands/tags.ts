@@ -1,3 +1,4 @@
+import { printApiError } from '../lib/api-error-output.js';
 import type { Command } from 'commander';
 import ora from 'ora';
 import { apiGet, apiPut, requireAuth } from '../lib/api.js';
@@ -59,7 +60,7 @@ export function registerTagsCommand(program: Command): void {
         console.log();
         printInfo(`Page ${result.page} of ${Math.max(1, Math.ceil(result.total_count / result.per_page))} (${result.total_count} total)`);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -102,7 +103,7 @@ export function registerTagsCommand(program: Command): void {
           ['Tags', result.tags.map((tag) => tag.tag).join(', ') || '-'],
         ]);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });

@@ -1,3 +1,4 @@
+import { printApiError } from '../lib/api-error-output.js';
 import type { Command } from 'commander';
 import ora from 'ora';
 import { apiPost, apiGet, requireAuth } from '../lib/api.js';
@@ -32,7 +33,7 @@ export function registerProjectCommand(program: Command): void {
           printInfo('No AGENTS.md found in this project sandbox.');
         }
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -67,7 +68,7 @@ export function registerProjectCommand(program: Command): void {
 
         process.exit(exitCode);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });

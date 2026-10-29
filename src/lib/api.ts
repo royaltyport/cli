@@ -1,4 +1,6 @@
-import { API_VERSION_HEADER, assertVersionedOperation, assertVersionedResponse, type ApiVersion } from './api-version.js';
+import { ApiError } from './api-error.js';
+export { ApiError } from './api-error.js';
+import { API_RELEASE, API_VERSION_HEADER, assertVersionedResponse } from './api-version.js';
 import { writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
@@ -16,7 +18,6 @@ import type {
   UploadUrlResult,
 } from '../types/index.js';
 import {
-  getApiVersion,
   getToken,
   getApiUrl,
   getAuthMethod,
@@ -34,21 +35,10 @@ const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 500;
 const RETRY_MAX_DELAY_MS = 60_000;
 
-export class ApiError extends Error {
-  readonly status: number;
-  readonly body: unknown;
 
-  constructor(message: string, status: number, body?: unknown) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.body = body;
-  }
-}
-
-function buildHeaders(token: string, apiVersion: ApiVersion): Record<string, string> {
+function buildHeaders(token: string): Record<string, string> {
   return {
-    [API_VERSION_HEADER]: apiVersion,
+    [API_VERSION_HEADER]: API_RELEASE,
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
   };
@@ -127,15 +117,13 @@ export async function requireAuth(): Promise<string> {
 }
 
 export async function apiGet(path: string, token?: string): Promise<Record<string, unknown>> {
-  const apiVersion = getApiVersion();
-  assertVersionedOperation(path, apiVersion);
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'GET',
-    headers: buildHeaders(resolvedToken, apiVersion),
+    headers: buildHeaders(resolvedToken),
   });
-  assertVersionedResponse(res, apiVersion);
+  assertVersionedResponse(res);
   const body = await parseResponse(res);
   if (!res.ok) {
     throwApiError(res, body);
@@ -144,16 +132,14 @@ export async function apiGet(path: string, token?: string): Promise<Record<strin
 }
 
 export async function apiPost(path: string, data: unknown, token?: string, options?: { idempotencyKey: string }): Promise<Record<string, unknown>> {
-  const apiVersion = getApiVersion();
-  assertVersionedOperation(path, apiVersion);
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
-    headers: { ...buildHeaders(resolvedToken, apiVersion), ...(options ? { 'Idempotency-Key': options.idempotencyKey } : {}) },
+    headers: { ...buildHeaders(resolvedToken), ...(options ? { 'Idempotency-Key': options.idempotencyKey } : {}) },
     body: JSON.stringify(data),
   });
-  assertVersionedResponse(res, apiVersion);
+  assertVersionedResponse(res);
   const body = await parseResponse(res);
   if (!res.ok) {
     throwApiError(res, body);
@@ -162,16 +148,14 @@ export async function apiPost(path: string, data: unknown, token?: string, optio
 }
 
 export async function apiPut(path: string, data: unknown, token?: string): Promise<Record<string, unknown>> {
-  const apiVersion = getApiVersion();
-  assertVersionedOperation(path, apiVersion);
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'PUT',
-    headers: buildHeaders(resolvedToken, apiVersion),
+    headers: buildHeaders(resolvedToken),
     body: JSON.stringify(data),
   });
-  assertVersionedResponse(res, apiVersion);
+  assertVersionedResponse(res);
   const body = await parseResponse(res);
   if (!res.ok) {
     throwApiError(res, body);
@@ -180,15 +164,13 @@ export async function apiPut(path: string, data: unknown, token?: string): Promi
 }
 
 export async function apiDelete(path: string, token?: string): Promise<Record<string, unknown>> {
-  const apiVersion = getApiVersion();
-  assertVersionedOperation(path, apiVersion);
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
   const res = await fetch(`${baseUrl}${path}`, {
     method: 'DELETE',
-    headers: buildHeaders(resolvedToken, apiVersion),
+    headers: buildHeaders(resolvedToken),
   });
-  assertVersionedResponse(res, apiVersion);
+  assertVersionedResponse(res);
   const body = await parseResponse(res);
   if (!res.ok) {
     throwApiError(res, body);
@@ -209,8 +191,6 @@ export async function apiPostRetry(
   token?: string,
 ): Promise<Record<string, unknown>> {
   const { retry = true } = options;
-  const apiVersion = getApiVersion();
-  assertVersionedOperation(path, apiVersion);
   const baseUrl = getApiUrl();
   const resolvedToken = token || await requireAuth();
 
@@ -220,7 +200,7 @@ export async function apiPostRetry(
     try {
       res = await fetch(`${baseUrl}${path}`, {
         method: 'POST',
-        headers: buildHeaders(resolvedToken, apiVersion),
+        headers: buildHeaders(resolvedToken),
         body: JSON.stringify(data),
       });
     } catch (err) {
@@ -232,7 +212,7 @@ export async function apiPostRetry(
       throw err;
     }
 
-    assertVersionedResponse(res, apiVersion);
+    assertVersionedResponse(res);
     if (res.ok) {
       return parseResponse(res);
     }

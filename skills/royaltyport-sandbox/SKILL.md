@@ -100,20 +100,14 @@ royaltyport contracts status <project_id> <staging_id> --watch
 ```bash
 royaltyport contracts list <project_id>
 royaltyport contracts list <project_id> --page 2 --per-page 50
-royaltyport contracts list <project_id> --includes commitments
-royaltyport contracts list <project_id> --includes commitments --citations --json
 royaltyport contracts get <project_id> <contract_id>
-royaltyport contracts get <project_id> <contract_id> --includes compositions,recordings --json
-royaltyport contracts get <project_id> <contract_id> --includes commitments --citations --json
 royaltyport contracts extractions <project_id> <contract_id> recordings --page 2 --per-page 250
 ```
 
 Commitments expose extracted deliverables as `linked_deliverables` and
 automatically joined recording/composition links as `linked_assets`.
 Pass `--citations` to return supporting citations with extraction items.
-Existing contract includes remain arrays capped at 100 items and have no
-pagination metadata. For a large or complete collection, use `contracts
-extractions` from page 1. It supports every extraction key, defaults to 100
+Read extraction collections with `contracts extractions` from page 1. It supports every extraction key, defaults to 100
 items per page, accepts up to 250, and returns `items`, `total_count`, `page`,
 and `per_page` with `--json`. Payment extractions use `compensations`. Only the
 top-level collection is paginated; nested arrays remain attached to each item
@@ -294,3 +288,12 @@ royaltyport project exec $PROJECT_ID \
 - **Contract extractions** under `extracted/` are AI-extracted terms. One YAML file per category.
 - **Batch commands** when you need multiple reads — pass multiple quoted commands to `project exec` to avoid repeated sandbox connections.
 - **Use `--parallel`** when commands are independent and you want faster results.
+
+### API contract and response navigation
+
+The CLI pins `2026-10-20.birch`; `royaltyport api-version` reports that pin.
+Use `contracts extractions --envelope` for response metadata and navigation
+links. Preserve the revision and query scope on subsequent pages. After a
+readiness conflict, inspect its Agents link; after a frozen decision conflict,
+poll the existing processing link while retaining the decision/key. Submit
+pause-bound `resolve` only for advertised actions.

@@ -234,7 +234,8 @@ royaltyport contracts update $PROJECT_ID $CONTRACT_ID --clear-tags
 command. Capacity pauses can be retried.
 
 ```bash
-royaltyport contracts retry $PROJECT_ID $STAGING_ID
+royaltyport contracts resolve $PROJECT_ID $STAGING_ID \
+  --pause-id PAUSE_UUID --action retry --idempotency-key retry-decision-1
 ```
 
 ### `royaltyport contracts download <project_id> <contract_id>`
@@ -335,7 +336,8 @@ royaltyport statements update $PROJECT_ID $STATEMENT_ID \
 Retry a statement paused at the project document limit:
 
 ```bash
-royaltyport statements retry $PROJECT_ID $STAGING_ID
+royaltyport statements resolve $PROJECT_ID $STAGING_ID \
+  --pause-id PAUSE_UUID --action retry --idempotency-key retry-decision-1
 ```
 
 ### `royaltyport statements download <project_id> <statement_id>`
@@ -392,10 +394,9 @@ Read processing status first and submit its current `pause.id` (or `pause_id`).
 Use one stable idempotency key per decision. If a request times out, retry the
 same key and payload; a different payload under that key returns HTTP 409.
 HTTP 202 means accepted for background dispatch; HTTP 200 can mean capacity
-is still full. Continue reading the Birch `/ingestion` URL (Aster retains `/processes`) and use the
-source-wide `status`, `terminal`, and `poll_after_seconds` fields. A paused or
-unknown source is not a signal to poll forever. Existing retry methods remain
-available for older integrations.
+is still full. Continue reading `/ingestion` using source-wide `status`,
+`terminal`, and `poll_after_seconds`. A paused or unknown source is not a signal
+to poll forever. Submit only actions advertised by the current pause.
 
 ```bash
 royaltyport contracts resolve PROJECT_ID STAGING_ID \
@@ -431,36 +432,28 @@ same command with the same key and payload. `status --watch` respects the
 source-wide completion state instead of stopping when only one split child
 has finished.
 
-## API release selection
+## Fixed API release
 
-CLI 1.0 defaults to `2026-10-20.birch`. This is separate from the CLI
-package version (`--version`) and the HTTP path prefix (`/v1`). Select an exact
-release with `--api-version`, then `ROYALTYPORT_API_VERSION`, then the saved
-profile setting, in that precedence. There is no moving `latest` alias.
+This CLI supports only `2026-10-20.birch`. The API release is independent of the
+package version (`--version`) and HTTP namespace (`/v1`). Every request, retry
+and poll sends the exact `Royaltyport-Version` header and checks the response.
+Signed Storage transfers receive neither API credentials nor the release header.
 
 ```bash
-royaltyport --api-version 2026-04-20.aster contracts status PROJECT_ID STAGING_ID
-royaltyport --api-version 2026-10-20.birch contracts status PROJECT_ID STAGING_ID
 royaltyport api-version
-royaltyport api-version 2026-10-20.birch
+# 2026-10-20.birch
 ```
 
-A command pins its release before authentication and retains it through token
-refresh, polling and retries. API responses must confirm that pin in
-`Royaltyport-Version`; signed Storage requests do not receive API credentials
-or version headers. JSON stdout remains machine-readable with each command’s existing output shape. Admission resolution
-is a Birch capability; Aster selection rejects that command before a request.
-Older installed CLIs without a version header remain on the server's Aster
-fallback. To preserve that contract after upgrading, select
-`2026-04-20.aster` explicitly. See [the changelog](CHANGELOG.md).
-
+There is no release selector, saved API-version preference or environment override.
+`api-version` is read-only. Document status commands always use `/ingestion`;
+capacity/split recovery uses `resolve` with the current pause and a stable key.
+The API server's support for other releases is independent of these clients.
 
 ### Birch processing responses
 
 Birch uses `status` and source-wide `terminal`, `resources[]`, per-document
 `document_processes[]`, and `pause.actions`. The CLI displays each resulting
-document's progress. The old `retry` command is Aster-only; on Birch use `resolve`
-with the current pause UUID and an idempotency key. An old frozen acceptance
+document's progress. Use `resolve` with the current pause UUID and an idempotency key. An old frozen acceptance
 response can return `resolution_response_contract_changed`; poll its existing
 status URL instead of creating another decision.
 
@@ -509,6 +502,24 @@ royaltyport agents run project_uuid run_uuid
 
 Run lists retain `data`, `meta.has_more`, `meta.next_cursor` and `links.next`. Keep the same project, filters and limit when reusing a cursor. Available filters are `--resource-type`, `--resource-id`, `--process-key`, `--status` and `--limit`.
 
-Agents commands and `--expected-revision` require Birch. The CLI rejects Aster before authentication or network requests. Existing status commands continue to use `/processes` when you select Aster explicitly.
+Agents commands and `--expected-revision` use the fixed Birch contract.
 
 Birch contract ingestion returns `staging_split_processes` and `staging_split_manifest`, replacing `intermediate_processes` and `split_manifest`. Resulting resources include `links.agents`.
+
+
+## Navigation and recoverable API conflicts
+
+`contracts extractions --json` retains its paginated data output; conditional
+reads still include the envelope and `meta.revision`. Use `--envelope` to get
+`data`, `meta` and `links.self`/`links.next` for any extraction request. The API
+links preserve project scope, citations, page size and the supplied revision.
+
+Upload and complete commands show `status: uploaded` separately from
+`processing_status`. A null admission value means this confirmation performed no
+new admission; poll the displayed processing URL for live state. Document Usage
+is the counted capacity, not remaining capacity; unavailable values stay unknown.
+
+For `readiness_changed`, inspect the displayed Agents URL before restarting
+pagination. For `resolution_response_contract_changed`, poll the existing
+processing URL and retain the displayed decision reference and original
+idempotency key. The CLI displays recovery guidance without issuing a mutation.

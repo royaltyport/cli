@@ -1,3 +1,4 @@
+import { printApiError } from '../lib/api-error-output.js';
 import type { Command } from 'commander';
 import { apiPost } from '../lib/api.js';
 import { buildResolution, type ResolveOptions } from '../lib/document-resolution.js';
@@ -21,7 +22,7 @@ export function registerDocumentResolutionCommand(parent: Command, kind: 'contra
         const response = await apiPost(`/v1/${kind}s/staging/${encodeURIComponent(stagingId)}/resolve?${new URLSearchParams({ projectId })}`, body, undefined, { idempotencyKey: options.idempotencyKey });
         printJson(options.json ? response : response.data);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exitCode = 1;
       }
     });

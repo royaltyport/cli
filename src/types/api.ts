@@ -30,7 +30,11 @@ export interface ContractUploadContext {
 
 export interface UploadCompleteResult {
   staging_id: number;
-  status: 'uploaded' | 'queued' | 'paused';
+  status: 'uploaded';
+  processing_status?: 'queued' | 'paused' | null;
+  usage_meter?: number | null;
+  usage_limit?: number | null;
+  links?: { self: string };
   context_applied: boolean;
   snapshot_hash?: string;
   enqueued?: number;
@@ -66,9 +70,4 @@ export interface PaginatedResult<T> {
 export interface DownloadResult {
   url: string;
   fileName?: string;
-}
-
-export interface ProcessInfo {
-  stage: string;
-  info: Record<string, { info: Record<string, unknown>; status: string }>;
 }

@@ -1,5 +1,4 @@
 import type { DocumentProcessingState } from './resolutions.js';
-import type { ProcessInfo } from './api.js';
 import type { ResourceScore } from './contracts.js';
 
 export interface Statement {
@@ -9,17 +8,15 @@ export interface Statement {
   score?: ResourceScore;
 }
 
-export interface StatementProcesses extends DocumentProcessingState {
+export interface StatementIngestion extends DocumentProcessingState {
   staging_id: number;
-  statement_id: number | null;
-  staging_done: boolean;
-  extraction_done: boolean;
-  staging_processes: ProcessInfo;
-  extraction_processes: {
-    stage: string;
+  staging_processes: { stage: string };
+  document_processes: Array<{
+    id: number;
+    stage: string | null;
     step: number;
     remarks: Record<string, unknown>;
-  } | null;
+  }>;
 }
 
 export interface StatementsUploadOptions {

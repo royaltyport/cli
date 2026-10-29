@@ -1,3 +1,4 @@
+import { printApiError } from '../lib/api-error-output.js';
 import type { Command } from 'commander';
 import ora from 'ora';
 import { apiGet, requireAuth } from '../lib/api.js';
@@ -54,7 +55,7 @@ export function registerKnowledgeCommand(program: Command): void {
         console.log();
         printInfo(`Knowledge last indexed: ${data.freshness.last_indexed_at || 'not available'}`);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
