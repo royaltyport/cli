@@ -1,3 +1,4 @@
+import { printApiError } from '../lib/api-error-output.js';
 import type { Command } from 'commander';
 import ora from 'ora';
 import { apiGet, apiPost, requireAuth } from '../lib/api.js';
@@ -31,7 +32,7 @@ export function registerProjectsCommand(program: Command): void {
 
         printTable(['ID', 'Name', 'Created'], rows);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -55,7 +56,7 @@ export function registerProjectsCommand(program: Command): void {
         printSuccess('Project created successfully.');
         printTable(['ID', 'Name'], [[project.id, project.name]]);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });

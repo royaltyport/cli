@@ -1,5 +1,4 @@
 import type { DocumentProcessingState } from './resolutions.js';
-import type { ProcessInfo } from './api.js';
 
 export interface Contract {
   id: number;
@@ -9,7 +8,6 @@ export interface Contract {
   file_name: string;
   file_type?: string;
   created_at: string;
-  extractions?: ContractExtractions;
   custom_extractions?: CustomExtraction[];
   score?: ResourceScore;
 }
@@ -357,31 +355,21 @@ export interface ContractExtractionMap {
 
 export type ContractExtractionKey = keyof ContractExtractionMap;
 
-export type ContractExtractions = {
-  [K in ContractExtractionKey]?: ContractExtractionMap[K][];
-};
-
 export interface ResourceScore {
   summary: { score?: number; meanScore?: number; failed?: number; warned?: number } | null;
   triggered_rules: Array<{ rule_id: string; status: 'fail' | 'warn'; severity: string; message: string | null }>;
 }
 
-export interface ContractProcesses extends DocumentProcessingState {
+export interface ContractIngestion extends DocumentProcessingState {
+  staging_split_manifest: { decision_id: string; expected_count: number; materialized_count: number; promoted_count: number } | null;
+  staging_split_processes: Array<{ stage: string | null }>;
   staging_id: number;
-  contract_id: number | null;
-  staging_done: boolean;
-  extraction_done: boolean;
-  staging_processes: ProcessInfo;
-  extraction_processes: {
-    stage: string;
-    extractions: ExtractionItem[];
-  } | null;
-}
-
-export interface ExtractionItem {
-  name: string;
-  status: string;
-  completed_at?: string;
+  staging_processes: { stage: string };
+  document_processes: Array<{
+    id: number;
+    stage: string | null;
+    extractions: Array<{ name: string; status: string | null; completed_at: string | null }>;
+  }>;
 }
 
 export interface ContractsUploadOptions {
@@ -401,14 +389,12 @@ export interface ContractsListOptions {
   page: string;
   perPage: string;
   extractorIds?: string;
-  includes?: string;
   score?: boolean;
   citations?: boolean;
   json?: boolean;
 }
 
 export interface ContractsGetOptions {
-  includes?: string;
   score?: boolean;
   citations?: boolean;
   json?: boolean;
@@ -420,6 +406,7 @@ export interface ContractsExtractionsOptions {
   perPage: string;
   citations?: boolean;
   json?: boolean;
+  envelope?: boolean;
 }
 
 export interface ContractsUpdateOptions {

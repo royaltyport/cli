@@ -1,17 +1,15 @@
-/** Additive source-wide processing state. Optional for older API deployments. */
+/** Source-wide processing contract for the Birch API release. */
 export interface DocumentProcessingState {
-  status?: 'unknown' | 'awaiting_upload' | 'queued' | 'processing' | 'finalizing' | 'cancelling' | 'paused' | 'completed' | 'failed' | 'rejected' | 'cancelled' | 'skipped' | 'timed_out';
-  phase?: 'upload' | 'staging' | 'extraction' | 'finalizing';
-  terminal?: boolean;
-  poll_after_seconds?: number | null;
-  upload_status?: string | null;
-  pause?: { id?: string; type?: 'document_limit' | 'split_required' | 'unknown'; code: string; message: string; details: Record<string, unknown>; actions?: Array<{ type: 'retry' | 'approve_split'; method: 'POST'; href: string }>; [key: string]: unknown } | null;
-  staging_split_processes?: Array<{ stage: string | null }>;
-  resources?: Array<{ type: 'contract' | 'statement'; id: number; href: string; links: { agents: string } }>;
-  error?: { code: string; message: string } | null;
-  links?: { self: string; resolve?: string | null };
-  staging_split_manifest?: { decision_id: string; expected_count: number; materialized_count: number; promoted_count: number } | null;
-  document_processes?: Array<{ id: number; stage: string | null; extractions?: Array<{ name: string; status: string | null; completed_at: string | null }>; step?: number; remarks?: Record<string, unknown> }>;
+  status: 'unknown' | 'awaiting_upload' | 'queued' | 'processing' | 'finalizing' | 'cancelling' | 'paused' | 'completed' | 'failed' | 'rejected' | 'cancelled' | 'skipped' | 'timed_out';
+  phase: 'upload' | 'staging' | 'extraction' | 'finalizing';
+  terminal: boolean;
+  poll_after_seconds: number | null;
+  upload_status: string | null;
+  pause: { id?: string; type: 'document_limit' | 'split_required' | 'unknown'; code: string; message: string; details: Record<string, unknown>; actions: Array<{ type: 'retry' | 'approve_split'; method: 'POST'; href: string }> } | null;
+  resources: Array<{ type: 'contract' | 'statement'; id: number; href: string; links: { agents: string } }>;
+  error: { code: string; message: string } | null;
+  links: { self: string; resolve?: string | null };
+  document_processes: Array<{ id: number; stage: string | null }>;
 }
 
 export interface ResolutionOptions {

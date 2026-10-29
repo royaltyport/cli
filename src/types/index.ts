@@ -11,7 +11,6 @@ export type {
   UploadCompleteResult,
   PaginatedResult,
   DownloadResult,
-  ProcessInfo,
 } from './api.js';
 export type { Project, ProjectsCreateOptions, ProjectExecResult, ProjectInfoResult, ProjectExecOptions } from './projects.js';
 export type {
@@ -50,9 +49,7 @@ export type {
   ContractTarget,
   ContractExtractionMap,
   ContractExtractionKey,
-  ContractExtractions,
-  ContractProcesses,
-  ExtractionItem,
+  ContractIngestion,
   ContractsUploadOptions,
   ContractsStatusOptions,
   ContractsListOptions,
@@ -65,7 +62,7 @@ export type {
 } from './contracts.js';
 export type {
   Statement,
-  StatementProcesses,
+  StatementIngestion,
   StatementsUploadOptions,
   StatementsStatusOptions,
   StatementsListOptions,

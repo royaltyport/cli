@@ -35,13 +35,11 @@ it('persists and reloads token, OAuth and API settings through the real Conf sch
 
   config.setToken('dummy-api-token');
   config.setApiUrl('https://api.example.test');
-  config.setApiVersion('2026-04-20.aster');
   vi.resetModules();
   config = await import('./config.js');
   expect(config.getToken()).toBe('dummy-api-token');
   expect(config.getAuthMethod()).toBe('token');
   expect(config.getApiUrl()).toBe('https://api.example.test');
-  expect(config.getApiVersion()).toBe('2026-04-20.aster');
 
   config.setOAuthTokens('dummy-access', 'dummy-refresh', 3600);
   vi.resetModules();
@@ -61,5 +59,4 @@ it('persists and reloads token, OAuth and API settings through the real Conf sch
   expect(config.getRefreshToken()).toBe('');
   expect(config.isTokenExpired()).toBe(true);
   expect(config.getApiUrl()).toBe('https://api.royaltyport.com');
-  expect(config.getApiVersion()).toBe('2026-10-20.birch');
 });

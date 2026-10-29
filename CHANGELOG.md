@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Breaking changes
+
+- Support only the fixed `2026-10-20.birch` contract. Remove Aster selection,
+  the API-version flag/environment/profile setting, standalone staging retry,
+  embedded extraction includes and singleton processing response types/rendering.
+- `api-version` now reports the pin and takes no arguments. Use pause-bound
+  `resolve` and dedicated paginated `contracts extractions` instead.
+- This removal of supported command surfaces requires a major release when published.
+
+### API parity
+
+- Add `contracts extractions --envelope` without changing existing JSON formats.
+- Show upload admission/capacity/polling links separately from upload confirmation.
+- Retain and display readiness/decision recovery details without retrying conflicts.
+
 - Refresh security-sensitive test and build dependencies; preserve Node 18 runtime support.
 - Update the runtime configuration URI parser to its patched release.
 

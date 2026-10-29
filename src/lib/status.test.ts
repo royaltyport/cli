@@ -1,126 +1,64 @@
-import { describe, expect, it, vi } from 'vitest';
-import { getProcessTerminalState, printProcessStatus } from './status.js';
-import type { ContractProcesses, StatementProcesses } from '../types/index.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ContractIngestion } from '../types/contracts.js';
+import { getIngestionTerminalState, printIngestionStatus } from './status.js';
 
-const processInfo = (stage: string) => ({ stage, info: {} });
+const data: ContractIngestion = {
+  staging_id: 1, status: 'processing', phase: 'extraction', terminal: false,
+  poll_after_seconds: 3, upload_status: 'uploaded', pause: null, error: null,
+  resources: [], links: { self: '/v1/contracts/1/ingestion?projectId=p' },
+  staging_processes: { stage: 'completed' }, staging_split_manifest: null,
+  staging_split_processes: [], document_processes: [],
+};
+afterEach(() => vi.restoreAllMocks());
 
-describe('getProcessTerminalState', () => {
-  it('treats staging failure as terminal', () => {
-    const data: StatementProcesses = {
-      staging_id: 1,
-      statement_id: null,
-      staging_done: true,
-      extraction_done: false,
-      staging_processes: processInfo('failed'),
-      extraction_processes: null,
-    };
-    expect(getProcessTerminalState(data, 'statement')).toBe('failed');
+describe('Birch source-wide ingestion', () => {
+  it('keeps watching while split siblings are processing', () => {
+    expect(getIngestionTerminalState({ ...data, document_processes: [
+      { id: 7, stage: 'completed', extractions: [] }, { id: 8, stage: 'processing', extractions: [] },
+    ] })).toBeNull();
   });
-
-  it('treats extraction failure as terminal', () => {
-    const data: ContractProcesses = {
-      staging_id: 1,
-      contract_id: 2,
-      staging_done: true,
-      extraction_done: false,
-      staging_processes: processInfo('completed'),
-      extraction_processes: { stage: 'failed', extractions: [] },
-    };
-    expect(getProcessTerminalState(data, 'contract')).toBe('failed');
+  it.each(['failed', 'rejected', 'cancelled', 'timed_out'] as const)('reports terminal %s as failure', status => {
+    expect(getIngestionTerminalState({ ...data, status, terminal: true })).toBe('failed');
   });
-
-  it('treats statement extraction failure as terminal', () => {
-    const data: StatementProcesses = {
-      staging_id: 1,
-      statement_id: 2,
-      staging_done: true,
-      extraction_done: true,
-      staging_processes: processInfo('completed'),
-      extraction_processes: { stage: 'failed', step: 2, remarks: {} },
-    };
-    expect(getProcessTerminalState(data, 'statement')).toBe('failed');
+  it.each(['completed', 'skipped'] as const)('completes terminal %s', status => {
+    expect(getIngestionTerminalState({ ...data, status, terminal: true })).toBe('completed');
   });
-
-  it('returns completed only after both stages finish', () => {
-    const data: ContractProcesses = {
-      staging_id: 1,
-      contract_id: 2,
-      staging_done: true,
-      extraction_done: true,
-      staging_processes: processInfo('completed'),
-      extraction_processes: { stage: 'completed', extractions: [] },
-    };
-    expect(getProcessTerminalState(data, 'contract')).toBe('completed');
+  it('stops watching a resumable pause', () => {
+    expect(getIngestionTerminalState({ ...data, status: 'paused' })).toBe('action_required');
   });
-
-  it('stops watching when a paused upload requires action', () => {
-    const data: ContractProcesses = {
-      staging_id: 1,
-      contract_id: null,
-      staging_done: false,
-      extraction_done: false,
-      staging_processes: processInfo('paused'),
-      extraction_processes: null,
-    };
-    expect(getProcessTerminalState(data, 'contract')).toBe('action_required');
+  it('refuses unverifiable completion, including a contradictory terminal flag', () => {
+    for (const terminal of [false, true]) {
+      expect(() => getIngestionTerminalState({ ...data, status: 'unknown', terminal })).toThrow('cannot be verified');
+    }
+    expect(() => getIngestionTerminalState({ ...data, terminal: true })).toThrow('Invalid Birch terminal');
   });
-});
-
-
-describe('source-wide status precedence', () => {
-  const data: ContractProcesses = {
-    staging_id: 1, contract_id: 2, staging_done: true, extraction_done: true,
-    staging_processes: processInfo('completed'), extraction_processes: { stage: 'completed', extractions: [] },
-  };
-  it('keeps watching while another split sibling is processing', () => {
-    expect(getProcessTerminalState({ ...data, status: 'processing', terminal: false }, 'contract')).toBeNull();
+  it('rejects incomplete responses instead of interpreting retired flags', () => {
+    const incomplete = { ...data };
+    Reflect.deleteProperty(incomplete, 'status');
+    expect(() => getIngestionTerminalState(incomplete)).toThrow('status and terminal are required');
   });
-  it('stops at an unsupported pause without relying on removed fields', () => {
-    expect(getProcessTerminalState({ ...data, status: 'paused', terminal: false }, 'contract')).toBe('action_required');
-  });
-  it('reports failed source even if the legacy first child succeeded', () => {
-    expect(getProcessTerminalState({ ...data, status: 'failed', terminal: true }, 'contract')).toBe('failed');
-  });
-  it('fails clearly instead of polling an unverified legacy split forever', () => {
-    expect(() => getProcessTerminalState({ ...data, status: 'unknown', terminal: false }, 'contract')).toThrow('cannot be verified');
-  });
-});
-
-
-describe('pause action display', () => {
-  const data: ContractProcesses = {
-    staging_id: 1, contract_id: null, staging_done: false, extraction_done: false, staging_processes: processInfo('paused'),
-    extraction_processes: null, status: 'paused', terminal: false,
-  };
-  it('advertises split resolution from pause.actions without retired fields', () => {
+  it('prints every document and only advertised resolution actions', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-    try {
-      printProcessStatus({ ...data, pause: { id: 'pause-1', type: 'split_required', code: 'contract-document-split', message: 'Split required', details: {}, actions: [{ type: 'approve_split', method: 'POST', href: '/resolve' }] } }, { resourceType: 'contract', projectId: 'project-1' });
-      expect(log.mock.calls.flat().join(' ')).toContain('Available pause actions: approve_split');
-      expect(log.mock.calls.flat().join(' ')).toContain('contracts resolve --help');
-      expect(log.mock.calls.flat().join(' ')).not.toContain('contracts retry');
-    } finally { log.mockRestore(); }
-  });
-  it('explains that an unsupported pause needs Platform attention', () => {
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-    try {
-      printProcessStatus({ ...data, pause: { code: 'unsupported', message: 'Paused', details: {}, actions: [] } }, { resourceType: 'contract', projectId: 'project-1' });
-      expect(log.mock.calls.flat().join(' ')).toContain('no API resolution is advertised');
-    } finally { log.mockRestore(); }
-  });
-});
-
-
-it('prints each Birch document without legacy completion labels', () => {
-  const log = vi.spyOn(console,'log').mockImplementation(() => {});
-  try {
-    printProcessStatus({ staging_id: 1, status: 'processing', phase: 'extraction', terminal: false,
-      staging_processes: processInfo('completed'), document_processes: [
-        { id: 7, stage: 'completed', extractions: [{ name: 'entities',status:'completed',completed_at:null }] },
-        { id: 8, stage: 'processing', extractions: [{ name: 'entities',status:'processing',completed_at:null }] },
-      ] } as ContractProcesses,{resourceType:'contract'});
+    printIngestionStatus({ ...data, status: 'paused', pause: {
+      id: 'pause-1', type: 'split_required', code: 'split', message: 'Select agreements', details: {},
+      actions: [{ type: 'approve_split', method: 'POST', href: '/resolve' }],
+    }, document_processes: [
+      { id: 7, stage: 'completed', extractions: [{ name: 'entities', status: 'completed', completed_at: null }] },
+      { id: 8, stage: 'processing', extractions: [] },
+    ] }, { resourceType: 'contract', projectId: 'project-1' });
     const output = log.mock.calls.flat().join(' ');
-    expect(output).toContain('Contract 7'); expect(output).toContain('Contract 8');
-    expect(output).not.toContain('Staging Done'); expect(output).not.toContain('Extraction Done');
-  } finally { log.mockRestore(); }
+    expect(output).toContain('Contract 7');
+    expect(output).toContain('Contract 8');
+    expect(output).toContain('Available pause actions: approve_split');
+    expect(output).toContain('contracts resolve --help');
+    expect(output).not.toContain('Staging Done');
+    expect(output).not.toContain('Extraction Done');
+  });
+  it('directs unsupported pauses to the Platform', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    printIngestionStatus({ ...data, status: 'paused', pause: {
+      type: 'unknown', code: 'unsupported', message: 'Paused', details: {}, actions: [],
+    } }, { resourceType: 'contract' });
+    expect(log.mock.calls.flat().join(' ')).toContain('no API resolution is advertised');
+  });
 });

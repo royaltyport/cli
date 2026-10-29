@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { get, upload, PROJECT_ID } from './setup.js';
-import type { StatementProcesses } from '../../src/types/index.js';
+import type { StatementIngestion } from '../../src/types/index.js';
 
 describe('Statements (integration)', () => {
   it('lists statements', async () => {
@@ -12,7 +12,7 @@ describe('Statements (integration)', () => {
     expect(Array.isArray(data.items)).toBe(true);
   });
 
-  describe('upload -> processes', () => {
+  describe('upload -> ingestion', () => {
     let uploadedStagingId: number;
 
     it('uploads a statement via the signed-URL flow', async () => {
@@ -31,11 +31,11 @@ describe('Statements (integration)', () => {
       uploadedStagingId = result.staging_id;
     });
 
-    it('gets statement processes', async () => {
+    it('gets statement ingestion', async () => {
       if (!uploadedStagingId) return;
 
       const response = await get(`/v1/statements/${uploadedStagingId}/ingestion?projectId=${PROJECT_ID}`);
-      const data = response.data as StatementProcesses;
+      const data = response.data as StatementIngestion;
 
       expect(data).toHaveProperty('staging_id');
       expect(data.staging_id).toBe(uploadedStagingId);

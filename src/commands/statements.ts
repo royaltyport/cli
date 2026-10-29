@@ -1,13 +1,14 @@
+import { printApiError } from '../lib/api-error-output.js';
+import { uploadResultRows } from '../lib/upload-result.js';
 import { registerResourceAgentsCommand } from './agents.js';
-import { getApiVersion } from '../lib/config.js';
-import { documentStatusPath } from '../lib/api-version.js';
+import { documentIngestionPath } from '../lib/api-version.js';
 import { registerDocumentResolutionCommand } from './document-resolution.js';
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
-import { apiGet, apiPost, apiPut, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
+import { apiGet, apiPut, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
 import { printTable, printError, printSuccess, printInfo, printJson } from '../lib/output.js';
-import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
+import { getIngestionTerminalState, printIngestionStatus } from '../lib/status.js';
 import { buildStatementUploadContext } from '../lib/upload-context.js';
 import { spinnerColor } from '../lib/theme.js';
 import { buildStatementUpdatePatch } from '../lib/statement-updates.js';
@@ -18,7 +19,7 @@ import type {
   StatementsUpdateOptions,
   StatementUpdateResult,
   StatementsDownloadOptions,
-  StatementProcesses,
+  StatementIngestion,
   PaginatedResult,
   Statement,
   DownloadResult,
@@ -99,18 +100,13 @@ export function registerStatementsCommand(program: Command): void {
           ['Field', 'Value'],
           [
             ['Staging ID', result.staging_id],
-            ['Status', result.status],
-            ['File Path', result.file_path],
-            ['Context Applied', result.context_applied ? 'yes' : 'no'],
-            ...(result.snapshot_hash ? [['Snapshot Hash', result.snapshot_hash]] : []),
-            ...(result.enqueued !== undefined ? [['Enqueued', result.enqueued]] : []),
-            ...(result.paused !== undefined ? [['Paused', result.paused]] : []),
+            ...uploadResultRows(result),
           ],
         );
         console.log();
         printInfo(`Track progress: royaltyport statements status ${projectId} ${result.staging_id}`);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -134,15 +130,11 @@ export function registerStatementsCommand(program: Command): void {
 
         printSuccess('Statement upload finalized.');
         printTable(['Field', 'Value'], [
-          ['Status', result.status],
-          ['Context Applied', result.context_applied ? 'yes' : 'no'],
-          ...(result.snapshot_hash ? [['Snapshot Hash', result.snapshot_hash]] : []),
-          ...(result.enqueued !== undefined ? [['Enqueued', result.enqueued]] : []),
-          ...(result.paused !== undefined ? [['Paused', result.paused]] : []),
+          ...uploadResultRows(result),
         ]);
         printInfo(`Track progress: royaltyport statements status ${projectId} ${stagingId}`);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -158,11 +150,11 @@ export function registerStatementsCommand(program: Command): void {
       try {
         await requireAuth();
 
-        const fetchStatus = async (): Promise<StatementProcesses> => {
+        const fetchStatus = async (): Promise<StatementIngestion> => {
           const response = await apiGet(
-            documentStatusPath('statement', stagingId, projectId, getApiVersion()),
+            documentIngestionPath('statement', stagingId, projectId),
           );
-          return response.data as StatementProcesses;
+          return response.data as StatementIngestion;
         };
 
         if (options.watch) {
@@ -171,21 +163,15 @@ export function registerStatementsCommand(program: Command): void {
           const deadline = Date.now() + timeoutMs;
           const spinner = ora({ text: 'Waiting for processing...', color: spinnerColor }).start();
 
-          let data: StatementProcesses;
+          let data: StatementIngestion;
           let terminalState;
           try {
             while (true) {
               data = await fetchStatus();
 
-              if (data.status !== undefined) {
-                spinner.text = `${data.phase}: ${data.status} (${data.document_processes?.length ?? 0} documents)`;
-              } else if (!data.staging_done) {
-                spinner.text = `Staging: ${data.staging_processes.stage}...`;
-              } else if (!data.extraction_done) {
-                spinner.text = 'Processing statement...';
-              }
+              spinner.text = `${data.phase}: ${data.status} (${data.document_processes.length} documents)`;
 
-              terminalState = getProcessTerminalState(data, 'statement');
+              terminalState = getIngestionTerminalState(data);
               if (terminalState) break;
               if (Date.now() >= deadline) throw new Error(`Timed out after ${options.timeout} seconds waiting for statement processing`);
               const pollSeconds = data.poll_after_seconds;
@@ -195,16 +181,16 @@ export function registerStatementsCommand(program: Command): void {
             spinner.stop();
           }
 
-          printProcessStatus(data, { resourceType: 'statement', projectId });
+          printIngestionStatus(data, { resourceType: 'statement', projectId });
           if (terminalState === 'failed') throw new Error('Statement processing failed');
         } else {
           const spinner = ora({ text: 'Fetching status...', color: spinnerColor }).start();
           const data = await fetchStatus();
           spinner.stop();
-          printProcessStatus(data, { resourceType: 'statement', projectId });
+          printIngestionStatus(data, { resourceType: 'statement', projectId });
         }
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -257,7 +243,7 @@ export function registerStatementsCommand(program: Command): void {
           ['Royalty Currency', result.currency ?? '-'],
         ]);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -296,31 +282,7 @@ export function registerStatementsCommand(program: Command): void {
         console.log();
         printInfo(`Page ${page} of ${Math.ceil(total_count / per_page)} (${total_count} total)`);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
-      }
-    });
-
-  statements
-    .command('retry')
-    .description('Retry a statement upload paused at the project document limit')
-    .argument('<project_id>', 'Project ID (UUID)')
-    .argument('<staging_id>', 'Staging ID')
-    .action(async (projectId: string, stagingId: string) => {
-      try {
-        await requireAuth();
-        const spinner = ora({ text: 'Retrying statement staging upload...', color: spinnerColor }).start();
-        let response: Record<string, unknown>;
-        try {
-          response = await apiPost(`/v1/statements/staging/${stagingId}/retry?projectId=${projectId}`, {});
-        } finally {
-          spinner.stop();
-        }
-        const result = response.data as { status: string; usage_meter?: number; usage_limit?: number; current_count?: number; limit?: number };
-        printSuccess(`Statement staging upload is ${result.status}.`);
-        if (result.status === 'paused') printInfo(`Capacity is still full (${result.usage_meter ?? result.current_count ?? '?'}/${result.usage_limit ?? result.limit ?? '?'}).`);
-      } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -349,7 +311,7 @@ export function registerStatementsCommand(program: Command): void {
 
         printSuccess(`Statement downloaded to ${destPath}`);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });

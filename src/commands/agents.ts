@@ -1,7 +1,6 @@
+import { printApiError } from '../lib/api-error-output.js';
 import type { Command } from 'commander';
 import { apiGet } from '../lib/api.js';
-import { assertVersionedOperation } from '../lib/api-version.js';
-import { getApiVersion } from '../lib/config.js';
 import { printError, printJson } from '../lib/output.js';
 
 interface RunOptions {
@@ -15,11 +14,9 @@ interface RunOptions {
 
 async function readAgents(path: string): Promise<void> {
   try {
-    // Check before authentication can refresh an OAuth token or send a request.
-    assertVersionedOperation(path, getApiVersion());
     printJson(await apiGet(path));
   } catch (err) {
-    printError(err instanceof Error ? err.message : String(err));
+    printApiError(err);
     process.exitCode = 1;
   }
 }

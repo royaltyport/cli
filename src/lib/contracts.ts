@@ -1,4 +1,4 @@
-import type { ContractCommitment, ContractExtractionKey } from '../types/contracts.js';
+import type { ContractExtractionKey } from '../types/contracts.js';
 
 function defineCompleteExtractionKeys<const Keys extends readonly ContractExtractionKey[]>(
   keys: Keys & ([ContractExtractionKey] extends [Keys[number]]
@@ -55,11 +55,6 @@ export function buildContractExtractionPath(
   return `/v1/contracts/${encodeURIComponent(contractId)}/extractions/${encodeURIComponent(extraction)}?${searchParams.toString()}`;
 }
 
-export function parseContractIncludes(value?: string): string[] {
-  if (!value) return [];
-  return [...new Set(value.split(',').map(item => item.trim()).filter(Boolean))];
-}
-
 export function parseContractExtractionKey(value: string): ContractExtractionKey {
   if ((CONTRACT_EXTRACTION_KEYS as readonly string[]).includes(value)) {
     return value as ContractExtractionKey;
@@ -75,17 +70,4 @@ export function summarizeContractExtractionItem(item: Record<string, unknown>): 
     ?? item.description
     ?? item.rule_id;
   return typeof summary === 'string' && summary.length > 0 ? summary : '-';
-}
-
-export function summarizeLinkedDeliverables(commitment: ContractCommitment): string {
-  if (commitment.linked_deliverables.length === 0) return '-';
-  return commitment.linked_deliverables
-    .map(deliverable => `${deliverable.fulfilled}/${deliverable.quantity} ${deliverable.type}`)
-    .join(', ');
-}
-
-export function summarizeCommitmentRecurring(commitment: ContractCommitment): string {
-  if (!commitment.recurring_unit) return '-';
-  if (!commitment.recurring_quantity) return commitment.recurring_unit;
-  return `Every ${commitment.recurring_quantity} ${commitment.recurring_unit}`;
 }

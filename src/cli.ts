@@ -1,4 +1,4 @@
-import { getApiVersion, pinCommandApiVersion, setApiVersion } from './lib/config.js';
+import { API_RELEASE } from './lib/api-version.js';
 import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 import { registerLoginCommand } from './commands/login.js';
@@ -13,35 +13,30 @@ import { registerKnowledgeCommand } from './commands/knowledge.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8')) as { version: string };
 
-const program = new Command();
+export function createProgram(): Command {
+  const program = new Command();
 
-program
-  .name('royaltyport')
-  .description('Royaltyport CLI — authenticate, list projects, and execute commands in a sandboxed project filesystem')
-  .version(pkg.version)
-  .option('--api-version <release>', 'Exact API contract (separate from --version)')
-  .hook('preAction', command => { pinCommandApiVersion(command.optsWithGlobals().apiVersion); });
+  program
+    .name('royaltyport')
+    .description('Royaltyport CLI — authenticate, list projects, and execute commands in a sandboxed project filesystem')
+    .version(pkg.version);
 
-program.command('api-version')
-  .description('Show the effective API release, or persist an exact profile release')
-  .argument('[release]', 'Exact API release to save for this CLI profile')
-  .action((release?: string) => {
-    if (release !== undefined) {
-      setApiVersion(release);
-      console.log(`Saved API release ${release}. Explicit --api-version and ROYALTYPORT_API_VERSION take precedence.`);
-    } else {
-      console.log(getApiVersion());
-    }
-  });
+  program.command('api-version')
+    .description('Show the fixed API release used by this CLI')
+    .allowExcessArguments(false)
+    .action(() => console.log(API_RELEASE));
 
-registerLoginCommand(program);
-registerLogoutCommand(program);
-registerProjectsCommand(program);
-registerProjectCommand(program);
-registerContractsCommand(program);
-registerStatementsCommand(program);
-registerTagsCommand(program);
-registerKnowledgeCommand(program);
-registerAgentsCommand(program);
+  registerLoginCommand(program);
+  registerLogoutCommand(program);
+  registerProjectsCommand(program);
+  registerProjectCommand(program);
+  registerContractsCommand(program);
+  registerStatementsCommand(program);
+  registerTagsCommand(program);
+  registerKnowledgeCommand(program);
+  registerAgentsCommand(program);
 
-export { program };
+  return program;
+}
+
+export const program = createProgram();

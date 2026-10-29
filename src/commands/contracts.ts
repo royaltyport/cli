@@ -1,14 +1,15 @@
+import { printApiError } from '../lib/api-error-output.js';
+import { uploadResultRows } from '../lib/upload-result.js';
 import { registerResourceAgentsCommand } from './agents.js';
-import { getApiVersion } from '../lib/config.js';
-import { assertVersionedOperation, documentStatusPath } from '../lib/api-version.js';
+import { documentIngestionPath } from '../lib/api-version.js';
 import { registerDocumentResolutionCommand } from './document-resolution.js';
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import ora from 'ora';
-import { apiGet, apiPost, apiPut, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
-import { buildContractExtractionPath, parseContractExtractionKey, parseContractIncludes, summarizeCommitmentRecurring, summarizeContractExtractionItem, summarizeLinkedDeliverables } from '../lib/contracts.js';
+import { apiGet, apiPut, apiUploadFlow, apiUploadComplete, apiDownloadFile, requireAuth } from '../lib/api.js';
+import { buildContractExtractionPath, parseContractExtractionKey, summarizeContractExtractionItem } from '../lib/contracts.js';
 import { printTable, printError, printSuccess, printInfo, printJson } from '../lib/output.js';
-import { getProcessTerminalState, printProcessStatus } from '../lib/status.js';
+import { getIngestionTerminalState, printIngestionStatus } from '../lib/status.js';
 import { buildContractUploadContext } from '../lib/upload-context.js';
 import { spinnerColor } from '../lib/theme.js';
 import { parseExtractorIds } from '../lib/custom-extractors.js';
@@ -22,7 +23,7 @@ import type {
   ContractsUpdateOptions,
   ContractUpdateResult,
   ContractsDownloadOptions,
-  ContractProcesses,
+  ContractIngestion,
   PaginatedResult,
   Contract,
   DownloadResult,
@@ -101,18 +102,13 @@ export function registerContractsCommand(program: Command): void {
           ['Field', 'Value'],
           [
             ['Staging ID', result.staging_id],
-            ['Status', result.status],
-            ['File Path', result.file_path],
-            ['Context Applied', result.context_applied ? 'yes' : 'no'],
-            ...(result.snapshot_hash ? [['Snapshot Hash', result.snapshot_hash]] : []),
-            ...(result.enqueued !== undefined ? [['Enqueued', result.enqueued]] : []),
-            ...(result.paused !== undefined ? [['Paused', result.paused]] : []),
+            ...uploadResultRows(result),
           ],
         );
         console.log();
         printInfo(`Track progress: royaltyport contracts status ${projectId} ${result.staging_id}`);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -136,15 +132,11 @@ export function registerContractsCommand(program: Command): void {
 
         printSuccess('Contract upload finalized.');
         printTable(['Field', 'Value'], [
-          ['Status', result.status],
-          ['Context Applied', result.context_applied ? 'yes' : 'no'],
-          ...(result.snapshot_hash ? [['Snapshot Hash', result.snapshot_hash]] : []),
-          ...(result.enqueued !== undefined ? [['Enqueued', result.enqueued]] : []),
-          ...(result.paused !== undefined ? [['Paused', result.paused]] : []),
+          ...uploadResultRows(result),
         ]);
         printInfo(`Track progress: royaltyport contracts status ${projectId} ${stagingId}`);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -160,11 +152,11 @@ export function registerContractsCommand(program: Command): void {
       try {
         await requireAuth();
 
-        const fetchStatus = async (): Promise<ContractProcesses> => {
+        const fetchStatus = async (): Promise<ContractIngestion> => {
           const response = await apiGet(
-            documentStatusPath('contract', stagingId, projectId, getApiVersion()),
+            documentIngestionPath('contract', stagingId, projectId),
           );
-          return response.data as ContractProcesses;
+          return response.data as ContractIngestion;
         };
 
         if (options.watch) {
@@ -173,23 +165,15 @@ export function registerContractsCommand(program: Command): void {
           const deadline = Date.now() + timeoutMs;
           const spinner = ora({ text: 'Waiting for processing...', color: spinnerColor }).start();
 
-          let data: ContractProcesses;
+          let data: ContractIngestion;
           let terminalState;
           try {
             while (true) {
               data = await fetchStatus();
 
-              if (data.status !== undefined) {
-                spinner.text = `${data.phase}: ${data.status} (${data.document_processes?.length ?? 0} documents)`;
-              } else if (!data.staging_done) {
-                spinner.text = `Staging: ${data.staging_processes.stage}...`;
-              } else if (!data.extraction_done) {
-                const exts = data.extraction_processes?.extractions || [];
-                const completed = exts.filter(e => e.status === 'completed').length;
-                spinner.text = `Extraction: ${data.extraction_processes?.stage} (${completed}/${exts.length} steps done)`;
-              }
+              spinner.text = `${data.phase}: ${data.status} (${data.document_processes.length} documents)`;
 
-              terminalState = getProcessTerminalState(data, 'contract');
+              terminalState = getIngestionTerminalState(data);
               if (terminalState) break;
               if (Date.now() >= deadline) throw new Error(`Timed out after ${options.timeout} seconds waiting for contract processing`);
               const pollSeconds = data.poll_after_seconds;
@@ -199,16 +183,16 @@ export function registerContractsCommand(program: Command): void {
             spinner.stop();
           }
 
-          printProcessStatus(data, { resourceType: 'contract', projectId });
+          printIngestionStatus(data, { resourceType: 'contract', projectId });
           if (terminalState === 'failed') throw new Error('Contract processing failed');
         } else {
           const spinner = ora({ text: 'Fetching status...', color: spinnerColor }).start();
           const data = await fetchStatus();
           spinner.stop();
-          printProcessStatus(data, { resourceType: 'contract', projectId });
+          printIngestionStatus(data, { resourceType: 'contract', projectId });
         }
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -218,20 +202,14 @@ export function registerContractsCommand(program: Command): void {
     .description('Get a contract by numeric ID or internal UUID')
     .argument('<project_id>', 'Project ID (UUID)')
     .argument('<contract_id>', 'Contract numeric ID or internal UUID')
-    .option('--includes <list>', 'Aster only: comma-separated extracted sub-resources')
     .option('--score', 'Include score summary and failed/warned rules')
     .option('--citations', 'Return citations with extracted items')
     .option('--json', 'Print the complete API data payload as JSON')
     .action(async (projectId: string, contractId: string, options: ContractsGetOptions) => {
       try {
-        if (options.includes !== undefined) {
-          assertVersionedOperation(`/v1/contracts?includes=${encodeURIComponent(options.includes)}`, getApiVersion());
-        }
         await requireAuth();
 
-        const includes = parseContractIncludes(options.includes);
         const searchParams = new URLSearchParams({ projectId });
-        if (includes.length > 0) searchParams.set('includes', includes.join(','));
         if (options.score) searchParams.set('score', 'true');
         if (options.citations) searchParams.set('citations', 'true');
 
@@ -256,30 +234,9 @@ export function registerContractsCommand(program: Command): void {
         if (options.score) details.push(['Score', contract.score?.summary?.score ?? '-']);
         printTable(['Field', 'Value'], details);
 
-        if (includes.includes('commitments')) {
-          console.log();
-          const commitments = contract.extractions?.commitments ?? [];
-          if (commitments.length === 0) {
-            printInfo('No commitments found.');
-          } else {
-            const columns = ['ID', 'Type', 'Title', 'Deliverables', 'Recurring', 'Linked'];
-            if (options.citations) columns.push('Citations');
-            printTable(
-              columns,
-              commitments.map(commitment => [
-                commitment.id,
-                commitment.type || '-',
-                commitment.title || '-',
-                summarizeLinkedDeliverables(commitment),
-                summarizeCommitmentRecurring(commitment),
-                commitment.linked_assets.length,
-                ...(options.citations ? [commitment.citations?.length ?? 0] : []),
-              ]),
-            );
-          }
-        }
+
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -295,6 +252,7 @@ export function registerContractsCommand(program: Command): void {
     .option('--citations', 'Return citations with extracted items')
     .option('--expected-revision <revision>', 'Require the recordings/compositions readiness revision (Birch only)')
     .option('--json', 'Print the paginated payload and conditional revision as JSON')
+    .option('--envelope', 'Print full JSON response with metadata and navigation links')
     .action(async (
       projectId: string,
       contractId: string,
@@ -304,7 +262,6 @@ export function registerContractsCommand(program: Command): void {
       try {
         const extraction = parseContractExtractionKey(key);
         const path = buildContractExtractionPath(projectId, contractId, extraction, options);
-        assertVersionedOperation(path, getApiVersion());
         await requireAuth();
 
         const spinner = ora({ text: `Fetching ${extraction}...`, color: spinnerColor }).start();
@@ -313,8 +270,8 @@ export function registerContractsCommand(program: Command): void {
         ).finally(() => spinner.stop());
 
         const result = response.data as PaginatedResult<Record<string, unknown>>;
-        if (options.json) {
-          printJson(options.expectedRevision ? response : result);
+        if (options.json || options.envelope) {
+          printJson(options.envelope || options.expectedRevision ? response : result);
           return;
         }
         if (result.items.length === 0) {
@@ -335,7 +292,7 @@ export function registerContractsCommand(program: Command): void {
         console.log();
         printInfo(`Page ${result.page} of ${Math.ceil(result.total_count / result.per_page)} (${result.total_count} total)`);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -370,7 +327,7 @@ export function registerContractsCommand(program: Command): void {
           ['Tags', result.tags.join(', ') || '-'],
         ]);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -382,26 +339,20 @@ export function registerContractsCommand(program: Command): void {
     .option('-p, --page <page>', 'Page number', '1')
     .option('-n, --per-page <perPage>', 'Results per page', '20')
     .option('--extractor-ids <ids>', 'Comma-separated custom extractor IDs whose results to include')
-    .option('--includes <list>', 'Aster only: comma-separated extracted sub-resources')
     .option('--score', 'Include score summary and failed/warned rules')
     .option('--citations', 'Return citations with extracted items')
     .option('--json', 'Print the complete API data payload as JSON')
     .action(async (projectId: string, options: ContractsListOptions) => {
       try {
-        if (options.includes !== undefined) {
-          assertVersionedOperation(`/v1/contracts?includes=${encodeURIComponent(options.includes)}`, getApiVersion());
-        }
         await requireAuth();
 
         const extractorIds = options.extractorIds ? parseExtractorIds(options.extractorIds) : undefined;
-        const includes = parseContractIncludes(options.includes);
         const searchParams = new URLSearchParams({
           projectId,
           page: options.page,
           perPage: options.perPage,
         });
         if (extractorIds) searchParams.set('extractorIds', extractorIds.join(','));
-        if (includes.length > 0) searchParams.set('includes', includes.join(','));
         if (options.score) searchParams.set('score', 'true');
         if (options.citations) searchParams.set('citations', 'true');
 
@@ -419,10 +370,8 @@ export function registerContractsCommand(program: Command): void {
           return;
         }
 
-        const includeCommitments = includes.includes('commitments');
         const columns = ['ID', 'File Name', 'Created'];
         if (extractorIds) columns.push('Custom Extractions');
-        if (includeCommitments) columns.push('Commitments');
         if (options.score) columns.push('Score');
 
         const rows = items.map((contract): (string | number)[] => {
@@ -432,7 +381,6 @@ export function registerContractsCommand(program: Command): void {
             contract.created_at ? new Date(contract.created_at).toLocaleDateString() : '-',
           ];
           if (extractorIds) row.push(JSON.stringify(contract.custom_extractions ?? []));
-          if (includeCommitments) row.push(contract.extractions?.commitments?.length ?? 0);
           if (options.score) row.push(contract.score?.summary?.score ?? '-');
           return row;
         });
@@ -441,31 +389,7 @@ export function registerContractsCommand(program: Command): void {
         console.log();
         printInfo(`Page ${page} of ${Math.ceil(total_count / per_page)} (${total_count} total)`);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
-      }
-    });
-
-  contracts
-    .command('retry')
-    .description('Retry a contract upload paused at the project document limit')
-    .argument('<project_id>', 'Project ID (UUID)')
-    .argument('<staging_id>', 'Staging ID')
-    .action(async (projectId: string, stagingId: string) => {
-      try {
-        await requireAuth();
-        const spinner = ora({ text: 'Retrying contract staging upload...', color: spinnerColor }).start();
-        let response: Record<string, unknown>;
-        try {
-          response = await apiPost(`/v1/contracts/staging/${stagingId}/retry?projectId=${projectId}`, {});
-        } finally {
-          spinner.stop();
-        }
-        const result = response.data as { status: string; usage_meter?: number; usage_limit?: number; current_count?: number; limit?: number };
-        printSuccess(`Contract staging upload is ${result.status}.`);
-        if (result.status === 'paused') printInfo(`Capacity is still full (${result.usage_meter ?? result.current_count ?? '?'}/${result.usage_limit ?? result.limit ?? '?'}).`);
-      } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });
@@ -494,7 +418,7 @@ export function registerContractsCommand(program: Command): void {
 
         printSuccess(`Contract downloaded to ${destPath}`);
       } catch (err) {
-        printError(err instanceof Error ? err.message : String(err));
+        printApiError(err);
         process.exit(1);
       }
     });

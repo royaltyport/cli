@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { get, upload, PROJECT_ID } from './setup.js';
-import type { Contract, ContractCommitment, ContractProcesses, PaginatedResult } from '../../src/types/index.js';
+import type { Contract, ContractCommitment, ContractIngestion, PaginatedResult } from '../../src/types/index.js';
 
 describe('Contracts (integration)', () => {
   it('lists contracts', async () => {
@@ -52,7 +52,7 @@ describe('Contracts (integration)', () => {
     }
   });
 
-  describe('upload -> processes', () => {
+  describe('upload -> ingestion', () => {
     let uploadedStagingId: number;
 
     it('uploads a contract via the signed-URL flow with extractions', async () => {
@@ -72,11 +72,11 @@ describe('Contracts (integration)', () => {
       uploadedStagingId = result.staging_id;
     });
 
-    it('gets contract processes', async () => {
+    it('gets contract ingestion', async () => {
       if (!uploadedStagingId) return;
 
       const response = await get(`/v1/contracts/${uploadedStagingId}/ingestion?projectId=${PROJECT_ID}`);
-      const data = response.data as ContractProcesses;
+      const data = response.data as ContractIngestion;
 
       expect(data).toHaveProperty('staging_id');
       expect(data.staging_id).toBe(uploadedStagingId);
