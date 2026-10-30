@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.0.0 (2026-10-30)
 
 ### Breaking changes
 
@@ -9,7 +9,6 @@
   embedded extraction includes and singleton processing response types/rendering.
 - `api-version` now reports the pin and takes no arguments. Use pause-bound
   `resolve` and dedicated paginated `contracts extractions` instead.
-- This removal of supported command surfaces requires a major release when published.
 
 ### API parity
 
@@ -19,6 +18,21 @@
 
 - Refresh security-sensitive test and build dependencies; preserve Node 18 runtime support.
 - Update the runtime configuration URI parser to its patched release.
+
+### Upgrade from 2.0
+
+- Remove `--api-version` and `ROYALTYPORT_API_VERSION` from scripts. The CLI
+  always uses `2026-10-20.birch`; existing saved release preferences are ignored.
+  Run `royaltyport api-version` to inspect the fixed release.
+- Replace standalone staging retry commands with `contracts resolve` or
+  `statements resolve`, using the observed pause UUID, advertised action and a
+  stable idempotency key. Keep the staging ID returned by upload for polling.
+- Replace embedded extraction includes with
+  `contracts extractions PROJECT_ID CONTRACT_ID KEY`. Add `--envelope` when
+  consuming navigation links and metadata; existing `--json` output stays intact.
+- Update processing-response readers to Birch's source-wide `terminal`,
+  `resources`, `document_processes` and `pause.actions` fields. Aster singleton
+  processing fields and `/processes` support have been removed from this client.
 
 
 ## 2.0.0
