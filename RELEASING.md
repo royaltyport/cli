@@ -18,5 +18,7 @@
    Main commit v<version>, and create the matching GitHub release using the
    changelog. Smoke-test the installed registry package.
 
-The 1.0.0 package selects 2026-10-20.birch by default. Publication must follow
-its Production API acceptance. Existing published packages remain available.
+CLI 3.0.0 supports only 2026-10-20.birch and removes the legacy release selectors
+and Aster command/response surfaces. Publication must follow Production Birch
+acceptance. Existing published packages remain available; see CHANGELOG.md for
+the migration from 2.0.
